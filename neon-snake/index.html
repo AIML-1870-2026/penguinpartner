@@ -209,18 +209,24 @@
 
         // Game state
         let snake = [];
+        let prevSnake = []; // Previous positions for interpolation
         let food = { x: 0, y: 0 };
         let direction = { x: 1, y: 0 };
         let nextDirection = { x: 1, y: 0 };
         let score = 0;
         let highScore = parseInt(localStorage.getItem('neonSnakeHighScore')) || 0;
-        let gameLoop = null;
         let isPaused = false;
         let isGameOver = false;
+        let isRunning = false;
         let gameMode = 'classic';
-        let gameSpeed = 150;
+        let moveInterval = 150; // Time between moves in ms
         let speedRunTimer = 60;
         let speedRunInterval = null;
+
+        // Smooth animation
+        let lastMoveTime = 0;
+        let moveProgress = 0; // 0 to 1, how far through the current move
+        let animationId = null;
 
         // Audio context for sound effects
         let audioCtx = null;
@@ -268,11 +274,14 @@
                 { x: 9, y: 10 },
                 { x: 8, y: 10 }
             ];
+            prevSnake = snake.map(s => ({ ...s }));
             direction = { x: 1, y: 0 };
             nextDirection = { x: 1, y: 0 };
             score = 0;
             isGameOver = false;
             isPaused = false;
+            moveProgress = 0;
+            lastMoveTime = performance.now();
 
             document.getElementById('score').textContent = score;
             document.getElementById('highScore').textContent = highScore;
@@ -284,18 +293,18 @@
             // Set game speed based on mode
             switch(gameMode) {
                 case 'classic':
-                    gameSpeed = 150;
+                    moveInterval = 120;
                     break;
                 case 'survival':
-                    gameSpeed = 100;
+                    moveInterval = 100;
                     break;
                 case 'speedrun':
-                    gameSpeed = 120;
+                    moveInterval = 100;
                     speedRunTimer = 60;
                     startSpeedRunTimer();
                     break;
                 case 'zen':
-                    gameSpeed = 200;
+                    moveInterval = 150;
                     break;
             }
 
@@ -330,6 +339,9 @@
 
         function update() {
             if (isPaused || isGameOver) return;
+
+            // Store previous positions for interpolation
+            prevSnake = snake.map(s => ({ ...s }));
 
             // Update direction
             direction = { ...nextDirection };
@@ -372,11 +384,12 @@
                 document.getElementById('score').textContent = score;
                 playEatSound();
                 spawnFood();
+                // Add a segment to prevSnake to match
+                prevSnake.unshift({ ...prevSnake[0] });
 
                 // Speed up in survival mode
-                if (gameMode === 'survival' && gameSpeed > 50) {
-                    gameSpeed -= 2;
-                    restartGameLoop();
+                if (gameMode === 'survival' && moveInterval > 50) {
+                    moveInterval -= 2;
                 }
             } else {
                 // Remove tail if no food eaten
@@ -384,7 +397,17 @@
             }
         }
 
-        function draw() {
+        // Easing function for smooth movement
+        function easeInOutQuad(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
+
+        // Linear interpolation
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function draw(timestamp) {
             // Clear canvas
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -403,12 +426,16 @@
                 ctx.stroke();
             }
 
-            // Draw food with glow
+            // Calculate interpolation factor with easing
+            const easedProgress = easeInOutQuad(moveProgress);
+
+            // Draw food with glow and pulse animation
+            const foodPulse = 1 + Math.sin(timestamp * 0.005) * 0.1;
             const foodX = food.x * CELL_SIZE + CELL_SIZE / 2;
             const foodY = food.y * CELL_SIZE + CELL_SIZE / 2;
 
             // Food glow
-            const foodGlow = ctx.createRadialGradient(foodX, foodY, 0, foodX, foodY, CELL_SIZE);
+            const foodGlow = ctx.createRadialGradient(foodX, foodY, 0, foodX, foodY, CELL_SIZE * foodPulse);
             foodGlow.addColorStop(0, 'rgba(255, 0, 102, 0.8)');
             foodGlow.addColorStop(0.5, 'rgba(255, 0, 102, 0.3)');
             foodGlow.addColorStop(1, 'rgba(255, 0, 102, 0)');
@@ -419,16 +446,43 @@
             // Food body
             ctx.fillStyle = '#ff0066';
             ctx.shadowColor = '#ff0066';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 15 * foodPulse;
             ctx.beginPath();
-            ctx.arc(foodX, foodY, CELL_SIZE / 3, 0, Math.PI * 2);
+            ctx.arc(foodX, foodY, (CELL_SIZE / 3) * foodPulse, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            // Draw snake
+            // Draw snake with smooth interpolation
             snake.forEach((segment, index) => {
-                const x = segment.x * CELL_SIZE;
-                const y = segment.y * CELL_SIZE;
+                // Get previous position (or current if not available)
+                const prev = prevSnake[index] || segment;
+
+                // Handle wrap-around interpolation for zen mode
+                let prevX = prev.x;
+                let prevY = prev.y;
+                let currX = segment.x;
+                let currY = segment.y;
+
+                // Check for wrap-around (large jump)
+                if (Math.abs(currX - prevX) > GRID_SIZE / 2) {
+                    if (currX > prevX) prevX += GRID_SIZE;
+                    else currX += GRID_SIZE;
+                }
+                if (Math.abs(currY - prevY) > GRID_SIZE / 2) {
+                    if (currY > prevY) prevY += GRID_SIZE;
+                    else currY += GRID_SIZE;
+                }
+
+                // Interpolate position
+                let interpX = lerp(prevX, currX, easedProgress);
+                let interpY = lerp(prevY, currY, easedProgress);
+
+                // Wrap back if needed
+                if (interpX >= GRID_SIZE) interpX -= GRID_SIZE;
+                if (interpY >= GRID_SIZE) interpY -= GRID_SIZE;
+
+                const x = interpX * CELL_SIZE;
+                const y = interpY * CELL_SIZE;
                 const isHead = index === 0;
 
                 // Snake glow
@@ -449,7 +503,7 @@
                 ctx.shadowColor = '#00ffff';
                 ctx.shadowBlur = isHead ? 20 : 10;
 
-                // Draw segment
+                // Draw segment with rounded corners
                 const padding = 2;
                 ctx.beginPath();
                 ctx.roundRect(x + padding, y + padding,
@@ -513,6 +567,7 @@
 
         function endGame() {
             isGameOver = true;
+            isRunning = false;
             playDeathSound();
 
             if (speedRunInterval) {
@@ -529,35 +584,53 @@
             document.getElementById('finalScore').textContent = score;
             document.getElementById('gameOver').classList.add('show');
 
-            if (gameLoop) {
-                clearInterval(gameLoop);
-                gameLoop = null;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
             }
         }
 
-        function gameLoopFunc() {
-            update();
-            draw();
+        // Main game loop using requestAnimationFrame
+        function gameLoop(timestamp) {
+            if (!isRunning) return;
+
+            if (!isPaused && !isGameOver) {
+                // Calculate time since last move
+                const elapsed = timestamp - lastMoveTime;
+                moveProgress = Math.min(elapsed / moveInterval, 1);
+
+                // Time for a new move?
+                if (elapsed >= moveInterval) {
+                    update();
+                    lastMoveTime = timestamp;
+                    moveProgress = 0;
+                }
+            }
+
+            draw(timestamp);
+            animationId = requestAnimationFrame(gameLoop);
         }
 
         function startGame() {
             initAudio();
             initGame();
 
-            if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(gameLoopFunc, gameSpeed);
-        }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
 
-        function restartGameLoop() {
-            if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(gameLoopFunc, gameSpeed);
+            isRunning = true;
+            lastMoveTime = performance.now();
+            animationId = requestAnimationFrame(gameLoop);
         }
 
         function togglePause() {
-            if (isGameOver) return;
+            if (isGameOver || !isRunning) return;
             isPaused = !isPaused;
+            if (!isPaused) {
+                lastMoveTime = performance.now();
+            }
             document.getElementById('pauseBtn').textContent = isPaused ? 'Resume' : 'Pause';
-            draw();
         }
 
         // Event listeners
@@ -619,7 +692,7 @@
         // Initial draw
         document.getElementById('highScore').textContent = highScore;
         initGame();
-        draw();
+        draw(0);
     </script>
 </body>
 </html>
