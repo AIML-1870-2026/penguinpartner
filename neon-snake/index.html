@@ -41,8 +41,8 @@
 
         .game-info {
             display: flex;
-            gap: 40px;
-            font-size: 1.2rem;
+            gap: 30px;
+            font-size: 1.1rem;
             color: #fff;
         }
 
@@ -52,6 +52,21 @@
             border: 2px solid #00ffff;
             border-radius: 8px;
             text-shadow: 0 0 10px #00ffff;
+        }
+
+        .score.p1 {
+            border-color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        .score.p2 {
+            border-color: #ff00ff;
+            background: rgba(255, 0, 255, 0.1);
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .score.p2 span {
+            color: #ff00ff;
         }
 
         .score span, .high-score span, .mode-display span {
@@ -102,10 +117,15 @@
             font-size: 0.9rem;
             text-align: center;
             margin-top: 10px;
+            line-height: 1.6;
         }
 
         .instructions span {
             color: #00ffff;
+        }
+
+        .instructions .p2-controls {
+            color: #ff00ff;
         }
 
         /* Game Over Overlay */
@@ -128,7 +148,7 @@
         }
 
         .game-over h2 {
-            font-size: 4rem;
+            font-size: 3.5rem;
             color: #ff0066;
             text-shadow:
                 0 0 10px #ff0066,
@@ -137,15 +157,48 @@
             margin-bottom: 20px;
         }
 
+        .game-over h2.p1-wins {
+            color: #00ffff;
+            text-shadow:
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                0 0 40px #00ffff;
+        }
+
+        .game-over h2.p2-wins {
+            color: #ff00ff;
+            text-shadow:
+                0 0 10px #ff00ff,
+                0 0 20px #ff00ff,
+                0 0 40px #ff00ff;
+        }
+
+        .game-over h2.tie {
+            color: #ffff00;
+            text-shadow:
+                0 0 10px #ffff00,
+                0 0 20px #ffff00,
+                0 0 40px #ffff00;
+        }
+
         .game-over .final-score {
-            font-size: 2rem;
+            font-size: 1.5rem;
             color: #fff;
-            margin-bottom: 30px;
+            margin-bottom: 10px;
         }
 
         .game-over .final-score span {
             color: #00ffff;
             text-shadow: 0 0 10px #00ffff;
+        }
+
+        .game-over .final-score.p2 span {
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+        }
+
+        .game-over .scores-container {
+            margin-bottom: 30px;
         }
 
         @media (max-width: 600px) {
@@ -170,9 +223,10 @@
         <h1>Neon Snake</h1>
 
         <div class="game-info">
-            <div class="score">Score: <span id="score">0</span></div>
+            <div class="score p1">P1: <span id="score1">0</span></div>
             <div class="mode-display">Mode: <span id="modeDisplay">Classic</span></div>
-            <div class="high-score">High Score: <span id="highScore">0</span></div>
+            <div class="score p2" id="p2ScoreBox" style="display: none;">P2: <span id="score2">0</span></div>
+            <div class="high-score" id="highScoreBox">High Score: <span id="highScore">0</span></div>
         </div>
 
         <canvas id="gameCanvas" width="600" height="600"></canvas>
@@ -180,6 +234,7 @@
         <div class="controls">
             <select id="gameMode">
                 <option value="classic">Classic</option>
+                <option value="multiplayer">Multiplayer</option>
                 <option value="survival">Survival</option>
                 <option value="speedrun">Speed Run</option>
                 <option value="zen">Zen Mode</option>
@@ -188,14 +243,16 @@
             <button id="pauseBtn">Pause</button>
         </div>
 
-        <div class="instructions">
+        <div class="instructions" id="instructions">
             Use <span>Arrow Keys</span> or <span>WASD</span> to move | <span>Space</span> to pause
         </div>
     </div>
 
     <div class="game-over" id="gameOver">
-        <h2>Game Over</h2>
-        <div class="final-score">Final Score: <span id="finalScore">0</span></div>
+        <h2 id="gameOverTitle">Game Over</h2>
+        <div class="scores-container" id="scoresContainer">
+            <div class="final-score">Final Score: <span id="finalScore">0</span></div>
+        </div>
         <button id="restartBtn">Play Again</button>
     </div>
 
@@ -207,28 +264,45 @@
         const GRID_SIZE = 20;
         const CELL_SIZE = canvas.width / GRID_SIZE;
 
+        // Player colors
+        const P1_COLOR = '#00ffff';
+        const P2_COLOR = '#ff00ff';
+
         // Game state
-        let snake = [];
-        let prevSnake = []; // Previous positions for interpolation
+        let player1 = {
+            snake: [],
+            prevSnake: [],
+            direction: { x: 1, y: 0 },
+            nextDirection: { x: 1, y: 0 },
+            score: 0,
+            alive: true
+        };
+
+        let player2 = {
+            snake: [],
+            prevSnake: [],
+            direction: { x: -1, y: 0 },
+            nextDirection: { x: -1, y: 0 },
+            score: 0,
+            alive: true
+        };
+
         let food = { x: 0, y: 0 };
-        let direction = { x: 1, y: 0 };
-        let nextDirection = { x: 1, y: 0 };
-        let score = 0;
         let highScore = parseInt(localStorage.getItem('neonSnakeHighScore')) || 0;
         let isPaused = false;
         let isGameOver = false;
         let isRunning = false;
         let gameMode = 'classic';
-        let moveInterval = 150; // Time between moves in ms
+        let moveInterval = 120;
         let speedRunTimer = 60;
         let speedRunInterval = null;
 
         // Smooth animation
         let lastMoveTime = 0;
-        let moveProgress = 0; // 0 to 1, how far through the current move
+        let moveProgress = 0;
         let animationId = null;
 
-        // Audio context for sound effects
+        // Audio context
         let audioCtx = null;
 
         function initAudio() {
@@ -256,43 +330,99 @@
             oscillator.stop(audioCtx.currentTime + duration);
         }
 
-        function playEatSound() {
-            playSound(440, 0.1, 'sine');
-            setTimeout(() => playSound(660, 0.1, 'sine'), 50);
+        function playEatSound(player) {
+            const baseFreq = player === 1 ? 440 : 520;
+            playSound(baseFreq, 0.1, 'sine');
+            setTimeout(() => playSound(baseFreq + 220, 0.1, 'sine'), 50);
         }
 
-        function playDeathSound() {
-            playSound(200, 0.3, 'sawtooth');
-            setTimeout(() => playSound(150, 0.3, 'sawtooth'), 100);
-            setTimeout(() => playSound(100, 0.5, 'sawtooth'), 200);
+        function playDeathSound(player) {
+            const baseFreq = player === 1 ? 200 : 250;
+            playSound(baseFreq, 0.3, 'sawtooth');
+            setTimeout(() => playSound(baseFreq - 50, 0.3, 'sawtooth'), 100);
+            setTimeout(() => playSound(baseFreq - 100, 0.5, 'sawtooth'), 200);
         }
 
-        // Initialize game
+        function playVictorySound() {
+            playSound(523, 0.15, 'sine');
+            setTimeout(() => playSound(659, 0.15, 'sine'), 150);
+            setTimeout(() => playSound(784, 0.3, 'sine'), 300);
+        }
+
+        function isMultiplayer() {
+            return gameMode === 'multiplayer';
+        }
+
         function initGame() {
-            snake = [
-                { x: 10, y: 10 },
-                { x: 9, y: 10 },
-                { x: 8, y: 10 }
-            ];
-            prevSnake = snake.map(s => ({ ...s }));
-            direction = { x: 1, y: 0 };
-            nextDirection = { x: 1, y: 0 };
-            score = 0;
+            // Initialize Player 1 - starts on left side
+            player1 = {
+                snake: [
+                    { x: 5, y: 10 },
+                    { x: 4, y: 10 },
+                    { x: 3, y: 10 }
+                ],
+                prevSnake: [],
+                direction: { x: 1, y: 0 },
+                nextDirection: { x: 1, y: 0 },
+                score: 0,
+                alive: true
+            };
+            player1.prevSnake = player1.snake.map(s => ({ ...s }));
+
+            // Initialize Player 2 - starts on right side
+            player2 = {
+                snake: [
+                    { x: 14, y: 10 },
+                    { x: 15, y: 10 },
+                    { x: 16, y: 10 }
+                ],
+                prevSnake: [],
+                direction: { x: -1, y: 0 },
+                nextDirection: { x: -1, y: 0 },
+                score: 0,
+                alive: true
+            };
+            player2.prevSnake = player2.snake.map(s => ({ ...s }));
+
             isGameOver = false;
             isPaused = false;
             moveProgress = 0;
             lastMoveTime = performance.now();
 
-            document.getElementById('score').textContent = score;
+            // Update UI
+            document.getElementById('score1').textContent = player1.score;
+            document.getElementById('score2').textContent = player2.score;
             document.getElementById('highScore').textContent = highScore;
             document.getElementById('gameOver').classList.remove('show');
             document.getElementById('pauseBtn').textContent = 'Pause';
+
+            // Show/hide P2 score and high score based on mode
+            const p2Box = document.getElementById('p2ScoreBox');
+            const hsBox = document.getElementById('highScoreBox');
+            if (isMultiplayer()) {
+                p2Box.style.display = 'block';
+                hsBox.style.display = 'none';
+            } else {
+                p2Box.style.display = 'none';
+                hsBox.style.display = 'block';
+            }
+
+            // Update instructions
+            const instructions = document.getElementById('instructions');
+            if (isMultiplayer()) {
+                instructions.innerHTML = 'P1: <span>Arrow Keys</span> | P2: <span class="p2-controls">WASD</span> | <span>Space</span> to pause';
+            } else {
+                instructions.innerHTML = 'Use <span>Arrow Keys</span> or <span>WASD</span> to move | <span>Space</span> to pause';
+            }
 
             spawnFood();
 
             // Set game speed based on mode
             switch(gameMode) {
                 case 'classic':
+                    moveInterval = 120;
+                    break;
+                case 'multiplayer':
                     moveInterval = 120;
                     break;
                 case 'survival':
@@ -309,6 +439,7 @@
             }
 
             document.getElementById('modeDisplay').textContent =
+                gameMode === 'multiplayer' ? '2 Player' :
                 gameMode.charAt(0).toUpperCase() + gameMode.slice(1);
         }
 
@@ -330,33 +461,44 @@
                 food.x = Math.floor(Math.random() * GRID_SIZE);
                 food.y = Math.floor(Math.random() * GRID_SIZE);
 
-                // Make sure food doesn't spawn on snake
-                validPosition = !snake.some(segment =>
-                    segment.x === food.x && segment.y === food.y
-                );
+                // Make sure food doesn't spawn on any snake
+                const onP1 = player1.snake.some(s => s.x === food.x && s.y === food.y);
+                const onP2 = isMultiplayer() ? player2.snake.some(s => s.x === food.x && s.y === food.y) : false;
+                validPosition = !onP1 && !onP2;
             }
         }
 
-        function update() {
-            if (isPaused || isGameOver) return;
+        function checkCollision(head, snake, skipFirst = false) {
+            const start = skipFirst ? 1 : 0;
+            for (let i = start; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
-            // Store previous positions for interpolation
-            prevSnake = snake.map(s => ({ ...s }));
+        function updatePlayer(player, playerNum) {
+            if (!player.alive) return;
+
+            // Store previous positions
+            player.prevSnake = player.snake.map(s => ({ ...s }));
 
             // Update direction
-            direction = { ...nextDirection };
+            player.direction = { ...player.nextDirection };
 
             // Calculate new head position
             const head = {
-                x: snake[0].x + direction.x,
-                y: snake[0].y + direction.y
+                x: player.snake[0].x + player.direction.x,
+                y: player.snake[0].y + player.direction.y
             };
 
             // Check wall collision
             if (gameMode !== 'zen') {
                 if (head.x < 0 || head.x >= GRID_SIZE ||
                     head.y < 0 || head.y >= GRID_SIZE) {
-                    endGame();
+                    player.alive = false;
+                    playDeathSound(playerNum);
                     return;
                 }
             } else {
@@ -368,102 +510,99 @@
             }
 
             // Check self collision
-            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+            if (checkCollision(head, player.snake)) {
                 if (gameMode !== 'zen') {
-                    endGame();
+                    player.alive = false;
+                    playDeathSound(playerNum);
                     return;
                 }
             }
 
             // Add new head
-            snake.unshift(head);
+            player.snake.unshift(head);
 
             // Check food collision
             if (head.x === food.x && head.y === food.y) {
-                score += 10;
-                document.getElementById('score').textContent = score;
-                playEatSound();
+                player.score += 10;
+                document.getElementById(`score${playerNum}`).textContent = player.score;
+                playEatSound(playerNum);
                 spawnFood();
-                // Add a segment to prevSnake to match
-                prevSnake.unshift({ ...prevSnake[0] });
+                player.prevSnake.unshift({ ...player.prevSnake[0] });
 
                 // Speed up in survival mode
                 if (gameMode === 'survival' && moveInterval > 50) {
                     moveInterval -= 2;
                 }
             } else {
-                // Remove tail if no food eaten
-                snake.pop();
+                player.snake.pop();
             }
         }
 
-        // Easing function for smooth movement
+        function update() {
+            if (isPaused || isGameOver) return;
+
+            // Update Player 1
+            updatePlayer(player1, 1);
+
+            // Update Player 2 in multiplayer
+            if (isMultiplayer()) {
+                updatePlayer(player2, 2);
+
+                // Check snake-to-snake collisions
+                if (player1.alive && player2.alive) {
+                    const p1Head = player1.snake[0];
+                    const p2Head = player2.snake[0];
+
+                    // Head-to-head collision
+                    if (p1Head.x === p2Head.x && p1Head.y === p2Head.y) {
+                        player1.alive = false;
+                        player2.alive = false;
+                        playDeathSound(1);
+                    }
+                    // P1 head hits P2 body
+                    else if (checkCollision(p1Head, player2.snake, true)) {
+                        player1.alive = false;
+                        playDeathSound(1);
+                    }
+                    // P2 head hits P1 body
+                    else if (checkCollision(p2Head, player1.snake, true)) {
+                        player2.alive = false;
+                        playDeathSound(2);
+                    }
+                }
+
+                // Check if game should end
+                if (!player1.alive || !player2.alive) {
+                    endGame();
+                }
+            } else {
+                // Single player - end if dead
+                if (!player1.alive) {
+                    endGame();
+                }
+            }
+        }
+
         function easeInOutQuad(t) {
             return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         }
 
-        // Linear interpolation
         function lerp(a, b, t) {
             return a + (b - a) * t;
         }
 
-        function draw(timestamp) {
-            // Clear canvas
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw grid (subtle)
-            ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= GRID_SIZE; i++) {
-                ctx.beginPath();
-                ctx.moveTo(i * CELL_SIZE, 0);
-                ctx.lineTo(i * CELL_SIZE, canvas.height);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(0, i * CELL_SIZE);
-                ctx.lineTo(canvas.width, i * CELL_SIZE);
-                ctx.stroke();
-            }
-
-            // Calculate interpolation factor with easing
+        function drawSnake(player, color, direction, timestamp) {
             const easedProgress = easeInOutQuad(moveProgress);
 
-            // Draw food with glow and pulse animation
-            const foodPulse = 1 + Math.sin(timestamp * 0.005) * 0.1;
-            const foodX = food.x * CELL_SIZE + CELL_SIZE / 2;
-            const foodY = food.y * CELL_SIZE + CELL_SIZE / 2;
+            player.snake.forEach((segment, index) => {
+                const prev = player.prevSnake[index] || segment;
 
-            // Food glow
-            const foodGlow = ctx.createRadialGradient(foodX, foodY, 0, foodX, foodY, CELL_SIZE * foodPulse);
-            foodGlow.addColorStop(0, 'rgba(255, 0, 102, 0.8)');
-            foodGlow.addColorStop(0.5, 'rgba(255, 0, 102, 0.3)');
-            foodGlow.addColorStop(1, 'rgba(255, 0, 102, 0)');
-            ctx.fillStyle = foodGlow;
-            ctx.fillRect(food.x * CELL_SIZE - CELL_SIZE/2, food.y * CELL_SIZE - CELL_SIZE/2,
-                        CELL_SIZE * 2, CELL_SIZE * 2);
-
-            // Food body
-            ctx.fillStyle = '#ff0066';
-            ctx.shadowColor = '#ff0066';
-            ctx.shadowBlur = 15 * foodPulse;
-            ctx.beginPath();
-            ctx.arc(foodX, foodY, (CELL_SIZE / 3) * foodPulse, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-
-            // Draw snake with smooth interpolation
-            snake.forEach((segment, index) => {
-                // Get previous position (or current if not available)
-                const prev = prevSnake[index] || segment;
-
-                // Handle wrap-around interpolation for zen mode
                 let prevX = prev.x;
                 let prevY = prev.y;
                 let currX = segment.x;
                 let currY = segment.y;
 
-                // Check for wrap-around (large jump)
+                // Handle wrap-around
                 if (Math.abs(currX - prevX) > GRID_SIZE / 2) {
                     if (currX > prevX) prevX += GRID_SIZE;
                     else currX += GRID_SIZE;
@@ -473,11 +612,9 @@
                     else currY += GRID_SIZE;
                 }
 
-                // Interpolate position
                 let interpX = lerp(prevX, currX, easedProgress);
                 let interpY = lerp(prevY, currY, easedProgress);
 
-                // Wrap back if needed
                 if (interpX >= GRID_SIZE) interpX -= GRID_SIZE;
                 if (interpY >= GRID_SIZE) interpY -= GRID_SIZE;
 
@@ -485,25 +622,29 @@
                 const y = interpY * CELL_SIZE;
                 const isHead = index === 0;
 
+                // Parse color for rgba
+                const r = parseInt(color.slice(1, 3), 16);
+                const g = parseInt(color.slice(3, 5), 16);
+                const b = parseInt(color.slice(5, 7), 16);
+
                 // Snake glow
                 if (isHead) {
                     const headGlow = ctx.createRadialGradient(
                         x + CELL_SIZE/2, y + CELL_SIZE/2, 0,
                         x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE
                     );
-                    headGlow.addColorStop(0, 'rgba(0, 255, 255, 0.5)');
-                    headGlow.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                    headGlow.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.5)`);
+                    headGlow.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
                     ctx.fillStyle = headGlow;
                     ctx.fillRect(x - CELL_SIZE/2, y - CELL_SIZE/2, CELL_SIZE * 2, CELL_SIZE * 2);
                 }
 
-                // Snake body gradient based on position
-                const alpha = 1 - (index / snake.length) * 0.5;
-                ctx.fillStyle = `rgba(0, 255, 255, ${alpha})`;
-                ctx.shadowColor = '#00ffff';
+                // Body with fade
+                const alpha = player.alive ? (1 - (index / player.snake.length) * 0.5) : 0.3;
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                ctx.shadowColor = color;
                 ctx.shadowBlur = isHead ? 20 : 10;
 
-                // Draw segment with rounded corners
                 const padding = 2;
                 ctx.beginPath();
                 ctx.roundRect(x + padding, y + padding,
@@ -511,7 +652,7 @@
                 ctx.fill();
 
                 // Head eyes
-                if (isHead) {
+                if (isHead && player.alive) {
                     ctx.fillStyle = '#000';
                     ctx.shadowBlur = 0;
                     const eyeSize = 3;
@@ -542,8 +683,55 @@
             });
 
             ctx.shadowBlur = 0;
+        }
 
-            // Draw timer for speed run mode
+        function draw(timestamp) {
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * CELL_SIZE, 0);
+                ctx.lineTo(i * CELL_SIZE, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * CELL_SIZE);
+                ctx.lineTo(canvas.width, i * CELL_SIZE);
+                ctx.stroke();
+            }
+
+            // Draw food
+            const foodPulse = 1 + Math.sin(timestamp * 0.005) * 0.1;
+            const foodX = food.x * CELL_SIZE + CELL_SIZE / 2;
+            const foodY = food.y * CELL_SIZE + CELL_SIZE / 2;
+
+            const foodGlow = ctx.createRadialGradient(foodX, foodY, 0, foodX, foodY, CELL_SIZE * foodPulse);
+            foodGlow.addColorStop(0, 'rgba(255, 0, 102, 0.8)');
+            foodGlow.addColorStop(0.5, 'rgba(255, 0, 102, 0.3)');
+            foodGlow.addColorStop(1, 'rgba(255, 0, 102, 0)');
+            ctx.fillStyle = foodGlow;
+            ctx.fillRect(food.x * CELL_SIZE - CELL_SIZE/2, food.y * CELL_SIZE - CELL_SIZE/2,
+                        CELL_SIZE * 2, CELL_SIZE * 2);
+
+            ctx.fillStyle = '#ff0066';
+            ctx.shadowColor = '#ff0066';
+            ctx.shadowBlur = 15 * foodPulse;
+            ctx.beginPath();
+            ctx.arc(foodX, foodY, (CELL_SIZE / 3) * foodPulse, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Draw snakes
+            drawSnake(player1, P1_COLOR, player1.direction, timestamp);
+            if (isMultiplayer()) {
+                drawSnake(player2, P2_COLOR, player2.direction, timestamp);
+            }
+
+            // Draw timer for speed run
             if (gameMode === 'speedrun' && !isGameOver) {
                 ctx.fillStyle = '#fff';
                 ctx.font = '24px Segoe UI';
@@ -568,20 +756,47 @@
         function endGame() {
             isGameOver = true;
             isRunning = false;
-            playDeathSound();
 
             if (speedRunInterval) {
                 clearInterval(speedRunInterval);
                 speedRunInterval = null;
             }
 
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('neonSnakeHighScore', highScore);
-                document.getElementById('highScore').textContent = highScore;
+            const titleEl = document.getElementById('gameOverTitle');
+            const scoresEl = document.getElementById('scoresContainer');
+
+            if (isMultiplayer()) {
+                // Determine winner
+                if (!player1.alive && !player2.alive) {
+                    titleEl.textContent = 'TIE!';
+                    titleEl.className = 'tie';
+                } else if (!player1.alive) {
+                    titleEl.textContent = 'Player 2 Wins!';
+                    titleEl.className = 'p2-wins';
+                    playVictorySound();
+                } else {
+                    titleEl.textContent = 'Player 1 Wins!';
+                    titleEl.className = 'p1-wins';
+                    playVictorySound();
+                }
+
+                scoresEl.innerHTML = `
+                    <div class="final-score">P1 Score: <span>${player1.score}</span></div>
+                    <div class="final-score p2">P2 Score: <span>${player2.score}</span></div>
+                `;
+            } else {
+                titleEl.textContent = 'Game Over';
+                titleEl.className = '';
+
+                if (player1.score > highScore) {
+                    highScore = player1.score;
+                    localStorage.setItem('neonSnakeHighScore', highScore);
+                    document.getElementById('highScore').textContent = highScore;
+                }
+
+                scoresEl.innerHTML = `<div class="final-score">Final Score: <span>${player1.score}</span></div>`;
             }
 
-            document.getElementById('finalScore').textContent = score;
             document.getElementById('gameOver').classList.add('show');
 
             if (animationId) {
@@ -590,16 +805,13 @@
             }
         }
 
-        // Main game loop using requestAnimationFrame
         function gameLoop(timestamp) {
             if (!isRunning) return;
 
             if (!isPaused && !isGameOver) {
-                // Calculate time since last move
                 const elapsed = timestamp - lastMoveTime;
                 moveProgress = Math.min(elapsed / moveInterval, 1);
 
-                // Time for a new move?
                 if (elapsed >= moveInterval) {
                     update();
                     lastMoveTime = timestamp;
@@ -645,35 +857,79 @@
 
             if (isPaused || isGameOver) return;
 
+            // Player 1 controls - Arrow keys (and WASD in single player)
             switch(e.key) {
                 case 'ArrowUp':
-                case 'w':
-                case 'W':
-                    if (direction.y !== 1) {
-                        nextDirection = { x: 0, y: -1 };
+                    if (player1.direction.y !== 1) {
+                        player1.nextDirection = { x: 0, y: -1 };
                     }
                     break;
                 case 'ArrowDown':
-                case 's':
-                case 'S':
-                    if (direction.y !== -1) {
-                        nextDirection = { x: 0, y: 1 };
+                    if (player1.direction.y !== -1) {
+                        player1.nextDirection = { x: 0, y: 1 };
                     }
                     break;
                 case 'ArrowLeft':
-                case 'a':
-                case 'A':
-                    if (direction.x !== 1) {
-                        nextDirection = { x: -1, y: 0 };
+                    if (player1.direction.x !== 1) {
+                        player1.nextDirection = { x: -1, y: 0 };
                     }
                     break;
                 case 'ArrowRight':
-                case 'd':
-                case 'D':
-                    if (direction.x !== -1) {
-                        nextDirection = { x: 1, y: 0 };
+                    if (player1.direction.x !== -1) {
+                        player1.nextDirection = { x: 1, y: 0 };
                     }
                     break;
+            }
+
+            // Player 2 controls - WASD (only in multiplayer)
+            // In single player, WASD also controls P1
+            if (isMultiplayer()) {
+                switch(e.key.toLowerCase()) {
+                    case 'w':
+                        if (player2.direction.y !== 1) {
+                            player2.nextDirection = { x: 0, y: -1 };
+                        }
+                        break;
+                    case 's':
+                        if (player2.direction.y !== -1) {
+                            player2.nextDirection = { x: 0, y: 1 };
+                        }
+                        break;
+                    case 'a':
+                        if (player2.direction.x !== 1) {
+                            player2.nextDirection = { x: -1, y: 0 };
+                        }
+                        break;
+                    case 'd':
+                        if (player2.direction.x !== -1) {
+                            player2.nextDirection = { x: 1, y: 0 };
+                        }
+                        break;
+                }
+            } else {
+                // Single player - WASD also controls P1
+                switch(e.key.toLowerCase()) {
+                    case 'w':
+                        if (player1.direction.y !== 1) {
+                            player1.nextDirection = { x: 0, y: -1 };
+                        }
+                        break;
+                    case 's':
+                        if (player1.direction.y !== -1) {
+                            player1.nextDirection = { x: 0, y: 1 };
+                        }
+                        break;
+                    case 'a':
+                        if (player1.direction.x !== 1) {
+                            player1.nextDirection = { x: -1, y: 0 };
+                        }
+                        break;
+                    case 'd':
+                        if (player1.direction.x !== -1) {
+                            player1.nextDirection = { x: 1, y: 0 };
+                        }
+                        break;
+                }
             }
         });
 
@@ -687,6 +943,25 @@
                 clearInterval(speedRunInterval);
                 speedRunInterval = null;
             }
+
+            // Update UI preview
+            const p2Box = document.getElementById('p2ScoreBox');
+            const hsBox = document.getElementById('highScoreBox');
+            const instructions = document.getElementById('instructions');
+
+            if (gameMode === 'multiplayer') {
+                p2Box.style.display = 'block';
+                hsBox.style.display = 'none';
+                instructions.innerHTML = 'P1: <span>Arrow Keys</span> | P2: <span class="p2-controls">WASD</span> | <span>Space</span> to pause';
+            } else {
+                p2Box.style.display = 'none';
+                hsBox.style.display = 'block';
+                instructions.innerHTML = 'Use <span>Arrow Keys</span> or <span>WASD</span> to move | <span>Space</span> to pause';
+            }
+
+            document.getElementById('modeDisplay').textContent =
+                gameMode === 'multiplayer' ? '2 Player' :
+                gameMode.charAt(0).toUpperCase() + gameMode.slice(1);
         });
 
         // Initial draw
