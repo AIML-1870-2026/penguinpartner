@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hello World</title>
+    <title>Assignment 1</title>
     <style>
         * {
             margin: 0;
@@ -11,13 +11,50 @@
             box-sizing: border-box;
         }
 
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+            50% {
+                transform: translate(-50%, -45%) rotate(5deg);
+            }
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea, #764ba2, #667eea, #764ba2);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '🌍';
+            position: absolute;
+            font-size: 30rem;
+            opacity: 0.1;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            animation: float 6s ease-in-out infinite;
         }
 
         .container {
@@ -26,21 +63,56 @@
             padding: 3rem 4rem;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1;
         }
 
         h1 {
             font-size: 3rem;
             color: #333;
+            margin-bottom: 1rem;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            position: relative;
+            z-index: 1;
+        }
+
+        .quote {
+            font-size: 1.3rem;
+            color: #555;
+            font-style: italic;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e0e0e0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .author {
+            font-size: 1rem;
+            color: #888;
+            margin-top: 0.5rem;
+            font-style: normal;
+        }
+
+        .name {
+            font-size: 1.5rem;
+            color: #666;
+            margin-top: 0.5rem;
+            font-weight: 300;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Hello World!</h1>
+        <p class="name">Bella Gerloff</p>
+        <div class="quote">
+            "The future belongs to those who believe in the beauty of their dreams."
+            <div class="author">— Eleanor Roosevelt</div>
+        </div>
     </div>
 </body>
 </html>
