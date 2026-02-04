@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boid Survival Lab</title>
+    <style>
+        :root { --panel-bg: rgba(10, 10, 15, 0.9); --accent: #00d4ff; --predator: #ff3333; --food: #44ff88; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #050508; font-family: 'Segoe UI', sans-serif; color: white; }
+        canvas { display: block; }
+        #ui-layer { position: absolute; top: 10px; right: 10px; width: 280px; background: var(--panel-bg);
+                    padding: 15px; border-radius: 12px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .control-group { margin-bottom: 12px; }
+        label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #999; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: var(--accent); }
+        .stats { position: absolute; top: 10px; left: 10px; font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; border: 1px solid #333; }
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+        button { background: #1a1a1a; border: 1px solid #333; color: white; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; transition: 0.2s; }
+        button:hover { border-color: var(--accent); background: #222; }
+        h3 { margin: 0 0 10px 0; font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="stats" id="readouts">Loading Ecosystem...</div>
+    <aside id="ui-layer">
+        <h3>Survival Lab v3</h3>
+        <div class="control-group">
+            <label>Social Forces (Sep/Ali/Coh)</label>
+            <input type="range" id="sepRange" min="0" max="5" step="0.1" value="1.5">
+            <input type="range" id="aliRange" min="0" max="5" step="0.1" value="1.0">
+            <input type="range" id="cohRange" min="0" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="control-group">
+            <label style="color:var(--predator)">Predator Aggression</label>
+            <input type="range" id="fearRange" min="0" max="15" step="0.5" value="5.0">
+        </div>
+        <div class="control-group">
+            <label style="color:var(--food)">Food Lure</label>
+            <input type="range" id="attrRange" min="0" max="5" step="0.1" value="2.0">
+        </div>
+        <div class="btn-row">
+            <button onclick="setPreset('school')">🐟 School</button>
+            <button onclick="setPreset('swarm')">🐝 Swarm</button>
+            <button onclick="toggleBoundaries()" id="boundBtn">Mode: Wrap</button>
+            <button onclick="resetSim()" style="color:var(--predator)">Reset</button>
+        </div>
+    </aside>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const readouts = document.getElementById('readouts');
+        let boids = [], predator, food = { x: 0, y: 0, active: false }, eatenCount = 0, isPaused = false, boundaryMode = 'wrap', lastTime = performance.now();
+        const cfg = { sep: 1.5, ali: 1.0, coh: 1.0, fear: 5.0, attr: 2.0, rad: 70, spd: 3.5, count: 150 };
+
+        class Vector {
+            constructor(x, y) { this.x = x; this.y = y; }
+            add(v) { this.x += v.x; this.y += v.y; return this; }
+            sub(v) { this.x -= v.x; this.y -= v.y; return this; }
+            mult(n) { this.x *= n; this.y *= n; return this; }
+            div(n) { this.x /= n; this.y /= n; return this; }
+            mag() { return Math.sqrt(this.x*this.x + this.y*this.y); }
+            setMag(n) { let m = this.mag(); if(m > 0) this.div(m).mult(n); return this; }
+            limit(n) { if(this.mag() > n) this.setMag(n); return this; }
+            static dist(v1, v2) { return Math.sqrt((v1.x-v2.x)**2 + (v1.y-v2.y)**2); }
+        }
+
+        class Predator {
+            constructor() { this.respawn(); }
+            respawn() {
+                this.pos = new Vector(Math.random()*canvas.width, Math.random()*canvas.height);
+                this.vel = new Vector(Math.random()*2-1, Math.random()*2-1).setMag(2.5);
+            }
+            update() {
+                this.vel.add(new Vector(Math.random()*0.6-0.3, Math.random()*0.6-0.3)).limit(2.8);
+                this.pos.add(this.vel);
+                if (this.pos.x > canvas.width) this.pos.x = 0; if (this.pos.x < 0) this.pos.x = canvas.width;
+                if (this.pos.y > canvas.height) this.pos.y = 0; if (this.pos.y < 0) this.pos.y = canvas.height;
+            }
+            draw() {
+                ctx.fillStyle = '#ff3333'; ctx.shadowBlur = 20; ctx.shadowColor = '#ff3333';
+                ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, 10, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+            }
+        }
+
+        class Boid {
+            constructor() { this.init(); }
+            init() {
+                this.pos = new Vector(Math.random()*canvas.width, Math.random()*canvas.height);
+                this.vel = new Vector(Math.random()*2-1, Math.random()*2-1).setMag(cfg.spd);
+                this.acc = new Vector(0, 0);
+                this.color = '#00d4ff';
+            }
+            applyBehaviors(others) {
+                let sep = new Vector(0, 0), ali = new Vector(0, 0), coh = new Vector(0, 0), total = 0;
+                for (let other of others) {
+                    let d = Vector.dist(this.pos, other.pos);
+                    if (other !== this && d < cfg.rad) {
+                        sep.add(new Vector(this.pos.x, this.pos.y).sub(other.pos).div(d || 1));
+                        ali.add(other.vel); coh.add(other.pos); total++;
+                    }
+                }
+                if (total > 0) {
+                    sep.div(total).setMag(cfg.spd).sub(this.vel).limit(0.2);
+                    ali.div(total).setMag(cfg.spd).sub(this.vel).limit(0.2);
+                    coh.div(total).sub(this.pos).setMag(cfg.spd).sub(this.vel).limit(0.2);
+                }
+                let dPred = Vector.dist(this.pos, predator.pos);
+                if (dPred < 15) { eatenCount++; this.init(); return 0; }
+                let fearFactor = Math.max(0, 1 - (dPred / 150));
+                this.color = `rgb(${Math.floor(fearFactor * 255)}, ${Math.floor((1 - fearFactor) * 212)}, 255)`;
+                if (dPred < 150) {
+                    let flee = new Vector(this.pos.x, this.pos.y).sub(predator.pos).setMag(cfg.spd*1.5).sub(this.vel).limit(0.5);
+                    this.acc.add(flee.mult(cfg.fear));
+                }
+                if (food.active) {
+                    let foodVec = new Vector(food.x, food.y);
+                    if (Vector.dist(this.pos, foodVec) < 300) {
+                        let seek = foodVec.sub(this.pos).setMag(cfg.spd).sub(this.vel).limit(0.1);
+                        this.acc.add(seek.mult(cfg.attr));
+                    }
+                }
+                this.acc.add(sep.mult(cfg.sep)); this.acc.add(ali.mult(cfg.ali)); this.acc.add(coh.mult(cfg.coh));
+                return total;
+            }
+            update() {
+                this.pos.add(this.vel); this.vel.add(this.acc).limit(cfg.spd); this.acc.mult(0);
+                if (boundaryMode === 'wrap') {
+                    if (this.pos.x > canvas.width) this.pos.x = 0; else if (this.pos.x < 0) this.pos.x = canvas.width;
+                    if (this.pos.y > canvas.height) this.pos.y = 0; else if (this.pos.y < 0) this.pos.y = canvas.height;
+                } else {
+                    const m = 50, t = 0.5;
+                    if (this.pos.x < m) this.vel.x += t; if (this.pos.x > canvas.width - m) this.vel.x -= t;
+                    if (this.pos.y < m) this.vel.y += t; if (this.pos.y > canvas.height - m) this.vel.y -= t;
+                }
+            }
+            draw() {
+                let angle = Math.atan2(this.vel.y, this.vel.x);
+                ctx.save(); ctx.translate(this.pos.x, this.pos.y); ctx.rotate(angle);
+                ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, 4); ctx.lineTo(-5, -4); ctx.closePath();
+                ctx.fillStyle = this.color; ctx.fill(); ctx.restore();
+            }
+        }
+
+        function init() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            predator = new Predator(); boids = Array.from({length: cfg.count}, () => new Boid());
+            loop(performance.now());
+        }
+
+        function loop(timestamp) {
+            if (!isPaused) {
+                ctx.fillStyle = "rgba(5, 5, 8, 0.35)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if(food.active) { ctx.fillStyle = '#44ff88'; ctx.beginPath(); ctx.arc(food.x, food.y, 5, 0, Math.PI*2); ctx.fill(); }
+                predator.update(); predator.draw();
+                let nSum = 0; boids.forEach(b => { nSum += b.applyBehaviors(boids); b.update(); b.draw(); });
+                let fps = Math.round(1000 / (timestamp - lastTime));
+                readouts.innerText = `FPS: ${fps} | Eaten: ${eatenCount} | Neighbors: ${(nSum/cfg.count).toFixed(1)}`;
+                lastTime = timestamp;
+            }
+            requestAnimationFrame(loop);
+        }
+
+        ['sep', 'ali', 'coh', 'fear', 'attr'].forEach(id => {
+            document.getElementById(id+'Range').oninput = (e) => cfg[id] = parseFloat(e.target.value);
+        });
+        function setPreset(t) {
+            if(t==='school') { cfg.sep=1.2; cfg.ali=4.0; cfg.coh=1.5; }
+            if(t==='swarm') { cfg.sep=4.0; cfg.ali=0.2; cfg.coh=0.1; }
+            ['sep','ali','coh'].forEach(id => document.getElementById(id+'Range').value = cfg[id]);
+        }
+        canvas.onmousedown = (e) => { food.x = e.clientX; food.y = e.clientY; food.active = true; };
+        function toggleBoundaries() { boundaryMode = boundaryMode === 'wrap' ? 'bounce' : 'wrap'; document.getElementById('boundBtn').innerText = `Mode: ${boundaryMode.toUpperCase()}`; }
+        function resetSim() { eatenCount = 0; predator.respawn(); boids.forEach(b => b.init()); }
+        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+        init();
+    </script>
+</body>
+</html>
