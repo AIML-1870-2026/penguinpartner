@@ -53,6 +53,86 @@
         let boids = [], predator, food = { x: 0, y: 0, active: false }, eatenCount = 0, isPaused = false, boundaryMode = 'wrap', lastTime = performance.now();
         const cfg = { sep: 1.5, ali: 1.0, coh: 1.0, fear: 5.0, attr: 2.0, rad: 70, spd: 3.5, count: 150 };
 
+        // Bubbles for ambient effect
+        let bubbles = [];
+        class Bubble {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height + Math.random() * 50;
+                this.radius = Math.random() * 4 + 1;
+                this.speed = Math.random() * 0.8 + 0.3;
+                this.wobble = Math.random() * Math.PI * 2;
+                this.wobbleSpeed = Math.random() * 0.03 + 0.01;
+            }
+            update() {
+                this.y -= this.speed;
+                this.wobble += this.wobbleSpeed;
+                this.x += Math.sin(this.wobble) * 0.3;
+                if (this.y < -10) this.reset();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + this.radius * 0.05})`;
+                ctx.fill();
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.2 + this.radius * 0.05})`;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+        }
+
+        // Light rays from surface
+        let lightRays = [];
+        function initLightRays() {
+            lightRays = [];
+            for (let i = 0; i < 5; i++) {
+                lightRays.push({
+                    x: Math.random() * canvas.width,
+                    width: Math.random() * 80 + 40,
+                    opacity: Math.random() * 0.03 + 0.02,
+                    drift: Math.random() * 0.2 - 0.1
+                });
+            }
+        }
+
+        function drawOceanBackground() {
+            // Ocean gradient
+            let gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#0a4a6e');    // Light surface blue
+            gradient.addColorStop(0.3, '#063a55');  // Mid blue
+            gradient.addColorStop(0.7, '#042a40');  // Deeper blue
+            gradient.addColorStop(1, '#021a2a');    // Deep ocean floor
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Light rays
+            for (let ray of lightRays) {
+                ray.x += ray.drift;
+                if (ray.x < -100) ray.x = canvas.width + 100;
+                if (ray.x > canvas.width + 100) ray.x = -100;
+
+                let rayGradient = ctx.createLinearGradient(ray.x, 0, ray.x, canvas.height * 0.8);
+                rayGradient.addColorStop(0, `rgba(150, 220, 255, ${ray.opacity})`);
+                rayGradient.addColorStop(1, 'rgba(150, 220, 255, 0)');
+
+                ctx.beginPath();
+                ctx.moveTo(ray.x - ray.width / 2, 0);
+                ctx.lineTo(ray.x - ray.width / 4, canvas.height * 0.8);
+                ctx.lineTo(ray.x + ray.width / 4, canvas.height * 0.8);
+                ctx.lineTo(ray.x + ray.width / 2, 0);
+                ctx.closePath();
+                ctx.fillStyle = rayGradient;
+                ctx.fill();
+            }
+
+            // Update and draw bubbles
+            for (let bubble of bubbles) {
+                bubble.update();
+                bubble.draw();
+            }
+        }
+
         class Vector {
             constructor(x, y) { this.x = x; this.y = y; }
             add(v) { this.x += v.x; this.y += v.y; return this; }
@@ -171,13 +251,16 @@
         function init() {
             canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             predator = new Predator(); boids = Array.from({length: cfg.count}, () => new Boid());
+            bubbles = Array.from({length: 30}, () => new Bubble());
+            bubbles.forEach(b => b.y = Math.random() * canvas.height); // Spread initially
+            initLightRays();
             loop(performance.now());
         }
 
         function loop(timestamp) {
             if (!isPaused) {
-                ctx.fillStyle = "rgba(5, 5, 8, 0.35)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                if(food.active) { ctx.fillStyle = '#44ff88'; ctx.beginPath(); ctx.arc(food.x, food.y, 5, 0, Math.PI*2); ctx.fill(); }
+                drawOceanBackground();
+                if(food.active) { ctx.fillStyle = '#44ff88'; ctx.shadowBlur = 10; ctx.shadowColor = '#44ff88'; ctx.beginPath(); ctx.arc(food.x, food.y, 5, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0; }
                 predator.update(); predator.draw();
                 let nSum = 0; boids.forEach(b => { nSum += b.applyBehaviors(boids); b.update(); b.draw(); });
                 let fps = Math.round(1000 / (timestamp - lastTime));
@@ -198,7 +281,7 @@
         canvas.onmousedown = (e) => { food.x = e.clientX; food.y = e.clientY; food.active = true; };
         function toggleBoundaries() { boundaryMode = boundaryMode === 'wrap' ? 'bounce' : 'wrap'; document.getElementById('boundBtn').innerText = `Mode: ${boundaryMode.toUpperCase()}`; }
         function resetSim() { eatenCount = 0; predator.respawn(); boids.forEach(b => b.init()); }
-        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; initLightRays(); };
         init();
     </script>
 </body>
