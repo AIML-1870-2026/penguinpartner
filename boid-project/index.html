@@ -136,9 +136,35 @@
             }
             draw() {
                 let angle = Math.atan2(this.vel.y, this.vel.x);
-                ctx.save(); ctx.translate(this.pos.x, this.pos.y); ctx.rotate(angle);
-                ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, 4); ctx.lineTo(-5, -4); ctx.closePath();
-                ctx.fillStyle = this.color; ctx.fill(); ctx.restore();
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.rotate(angle);
+
+                // Fish body - smooth elliptical shape
+                ctx.beginPath();
+                ctx.moveTo(10, 0); // Nose
+                ctx.bezierCurveTo(6, -4, -2, -5, -6, -3); // Top curve
+                ctx.bezierCurveTo(-8, -2, -8, 2, -6, 3); // Back curve
+                ctx.bezierCurveTo(-2, 5, 6, 4, 10, 0); // Bottom curve
+                ctx.fillStyle = this.color;
+                ctx.fill();
+
+                // Tail fin
+                ctx.beginPath();
+                ctx.moveTo(-6, 0);
+                ctx.bezierCurveTo(-8, -2, -12, -5, -14, -4);
+                ctx.bezierCurveTo(-11, 0, -11, 0, -14, 4);
+                ctx.bezierCurveTo(-12, 5, -8, 2, -6, 0);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+
+                // Eye
+                ctx.beginPath();
+                ctx.arc(5, -1, 1.2, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+
+                ctx.restore();
             }
         }
 
