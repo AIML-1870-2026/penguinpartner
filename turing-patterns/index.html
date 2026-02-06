@@ -133,6 +133,7 @@
             <div class="relative">
                 <canvas id="canvas" width="512" height="512"></canvas>
                 <div id="brushIndicator" class="pointer-events-none absolute rounded-full border-2 border-white/50 hidden" style="width: 30px; height: 30px;"></div>
+                <div id="clickCounter" class="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs pointer-events-none">Clicks: 0</div>
             </div>
         </div>
 
@@ -1013,7 +1014,9 @@
 
         // Canvas interaction
         let isDrawing = false;
+        let clickCount = 0;
         const brushIndicator = document.getElementById('brushIndicator');
+        const clickCounter = document.getElementById('clickCounter');
 
         function getCanvasCoords(e) {
             const rect = canvas.getBoundingClientRect();
@@ -1032,7 +1035,13 @@
         function handlePointerDown(e) {
             e.preventDefault();
             isDrawing = true;
+            clickCount++;
+            clickCounter.textContent = 'Clicks: ' + clickCount;
             const coords = getCanvasCoords(e);
+            console.log('CLICK DETECTED at', coords.x, coords.y);
+            // Flash the canvas border to show click registered
+            canvas.style.boxShadow = '0 0 20px #4f46e5';
+            setTimeout(() => canvas.style.boxShadow = 'none', 100);
             applyBrush(coords.x, coords.y);
         }
 
