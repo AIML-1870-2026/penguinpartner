@@ -519,14 +519,17 @@
 
             void applyBrush(vec2 pos, inout vec2 state) {
                 float dist = distance(vUv, pos);
-                float strength = smoothstep(uBrushSize, 0.0, dist * uResolution.x);
+                float strength = smoothstep(uBrushSize / uResolution.x, 0.0, dist);
 
                 if (uBrushType < 0.5) {
-                    state.r = mix(state.r, 0.5, strength * 0.5);
-                    state.g = mix(state.g, 0.25, strength * 0.5);
+                    // Add chemical A - creates seed for pattern growth
+                    state.r = mix(state.r, 0.5, strength);
+                    state.g = mix(state.g, 0.25, strength);
                 } else if (uBrushType < 1.5) {
-                    state.g = mix(state.g, 1.0, strength);
+                    // Add chemical B - triggers reaction
+                    state.g = min(state.g + strength * 0.5, 1.0);
                 } else {
+                    // Erase - reset to initial state
                     state = mix(state, vec2(1.0, 0.0), strength);
                 }
             }
@@ -675,12 +678,12 @@
                 data[i * 4 + 3] = 1.0;
             }
 
-            // Add random seed clusters
-            const numSeeds = 20 + Math.floor(Math.random() * 30);
+            // Add random seed clusters - larger and more visible
+            const numSeeds = 30 + Math.floor(Math.random() * 20);
             for (let s = 0; s < numSeeds; s++) {
                 const cx = Math.floor(Math.random() * width);
                 const cy = Math.floor(Math.random() * height);
-                const radius = 3 + Math.floor(Math.random() * 8);
+                const radius = 5 + Math.floor(Math.random() * 12);
 
                 for (let y = -radius; y <= radius; y++) {
                     for (let x = -radius; x <= radius; x++) {
@@ -688,9 +691,23 @@
                             const px = (cx + x + width) % width;
                             const py = (cy + y + height) % height;
                             const idx = (py * width + px) * 4;
-                            data[idx] = 0.5 + Math.random() * 0.1;
-                            data[idx + 1] = 0.25 + Math.random() * 0.1;
+                            data[idx] = 0.5;
+                            data[idx + 1] = 0.25;
                         }
+                    }
+                }
+            }
+
+            // Add a central cluster to ensure visible activity
+            const centerRadius = 20;
+            for (let y = -centerRadius; y <= centerRadius; y++) {
+                for (let x = -centerRadius; x <= centerRadius; x++) {
+                    if (x * x + y * y <= centerRadius * centerRadius) {
+                        const px = Math.floor(width / 2) + x;
+                        const py = Math.floor(height / 2) + y;
+                        const idx = (py * width + px) * 4;
+                        data[idx] = 0.5;
+                        data[idx + 1] = 0.25;
                     }
                 }
             }
