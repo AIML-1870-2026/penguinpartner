@@ -671,10 +671,23 @@
         const ext = gl.getExtension('EXT_color_buffer_float');
         if (!ext) {
             console.warn('EXT_color_buffer_float not supported');
+            alert('Your browser may not fully support this app. Try Chrome for best results.');
         }
 
         let textures = [createTexture(), createTexture()];
         let framebuffers = [createFramebuffer(textures[0]), createFramebuffer(textures[1])];
+
+        // Check framebuffer status
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffers[0]);
+        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (status !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Framebuffer not complete:', status);
+            alert('WebGL framebuffer error. Your browser may not support float textures.');
+        } else {
+            console.log('Framebuffers created successfully');
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
         let currentTex = 0;
 
         // Initialize with seed pattern
@@ -1169,8 +1182,20 @@
         });
 
         // Initialize
+        console.log('Initializing...');
         initializeState();
-        animate();
+        console.log('State initialized, starting animation...');
+
+        // Test: clear canvas to a visible color first
+        gl.clearColor(0.2, 0.4, 0.6, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        console.log('Canvas cleared to blue - you should see a blue square');
+
+        // Start animation after a short delay so user can see the blue
+        setTimeout(() => {
+            console.log('Starting animation loop...');
+            animate();
+        }, 1000);
     </script>
 </body>
 </html>
