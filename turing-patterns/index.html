@@ -234,8 +234,9 @@
                         const x = (cx + dx + width) % width;
                         const y = (cy + dy + height) % height;
                         const idx = y * width + x;
-                        gridA[idx] = 0.5;
-                        gridB[idx] = 0.25;
+                        // Use stronger seed values for more visible patterns
+                        gridA[idx] = 0.0;
+                        gridB[idx] = 1.0;
                     }
                 }
             }
@@ -341,8 +342,8 @@
                             gridA[idx] = 1.0;
                             gridB[idx] = 0.0;
                         } else {
-                            gridA[idx] = 0.5;
-                            gridB[idx] = 0.25;
+                            gridA[idx] = 0.0;
+                            gridB[idx] = 1.0;
                         }
                     }
                 }
@@ -350,14 +351,20 @@
         }
 
         // ========== ANIMATION LOOP ==========
+        let animationId = null;
+
         function animate() {
-            if (!paused) {
-                for (let i = 0; i < simSpeed; i++) {
-                    simulate();
+            try {
+                if (!paused) {
+                    for (let i = 0; i < simSpeed; i++) {
+                        simulate();
+                    }
                 }
+                render();
+            } catch (e) {
+                console.error('Animation error:', e);
             }
-            render();
-            requestAnimationFrame(animate);
+            animationId = requestAnimationFrame(animate);
         }
 
         // ========== UI SETUP ==========
@@ -374,6 +381,7 @@
                 currentPreset = key;
                 f = PRESETS[key].f;
                 k = PRESETS[key].k;
+                initGrid(); // Reset simulation with new preset
             });
             presetGrid.appendChild(btn);
         });
