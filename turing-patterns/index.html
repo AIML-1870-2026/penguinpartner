@@ -3,986 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turing Patterns Studio</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            background: #0f0f0f;
-            color: #e0e0e0;
-            font-family: 'Inter', system-ui, sans-serif;
-        }
-        .panel { background: #1a1a1a; border-radius: 12px; }
-        .panel-section { border-bottom: 1px solid #2a2a2a; }
-        .btn {
-            transition: all 0.2s ease;
-            background: #2a2a2a;
-        }
-        .btn:hover { background: #3a3a3a; }
-        .btn.active { background: #4f46e5; color: white; }
-        .preset-btn {
-            transition: all 0.15s ease;
-            border: 2px solid transparent;
-        }
-        .preset-btn:hover { border-color: #4f46e5; }
-        .preset-btn.active { border-color: #4f46e5; background: #2a2a2a; }
-        .color-swatch {
-            transition: transform 0.15s ease;
-            border: 2px solid transparent;
-        }
-        .color-swatch:hover { transform: scale(1.1); }
-        .color-swatch.active { border-color: white; }
-        input[type="range"] {
-            -webkit-appearance: none;
-            background: #2a2a2a;
-            border-radius: 4px;
-            height: 6px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 16px;
-            height: 16px;
-            background: #4f46e5;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        select {
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            color: #e0e0e0;
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        select:focus { outline: none; border-color: #4f46e5; }
-        .section-title {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #888;
-            margin-bottom: 8px;
-        }
-        #canvas {
-            cursor: crosshair;
-            border-radius: 8px;
-        }
-        .collapsible-header {
-            cursor: pointer;
-            user-select: none;
-        }
-        .collapsible-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-        .collapsible-content.open {
-            max-height: 300px;
-        }
-        .gradient-stop {
-            width: 20px;
-            height: 20px;
-            border: 2px solid white;
-            border-radius: 50%;
-            cursor: grab;
-            position: absolute;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        .gradient-stop:active { cursor: grabbing; }
-        .modal { backdrop-filter: blur(4px); }
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-        }
-        .checkbox-wrapper input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: #4f46e5;
-            cursor: pointer;
-        }
-    </style>
+    <title>Turing Patterns Explorer - penguinpartner</title>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="min-h-screen overflow-hidden">
-    <!-- Header -->
-    <header class="px-6 py-4 flex items-center justify-between border-b border-gray-800">
-        <div>
-            <h1 class="text-xl font-semibold text-white">Turing Patterns Studio</h1>
-            <p class="text-sm text-gray-500">Create mesmerizing reaction-diffusion art</p>
-        </div>
-        <button id="infoBtn" class="btn px-4 py-2 rounded-lg text-sm flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            About
-        </button>
-    </header>
-
-    <div class="flex h-[calc(100vh-73px)]">
-        <!-- Main Canvas Area -->
-        <div class="flex-1 flex items-center justify-center p-6">
-            <div class="relative">
-                <canvas id="canvas" width="512" height="512"></canvas>
-                <div id="brushCursor" class="pointer-events-none absolute rounded-full border-2 border-white/50 hidden" style="transform: translate(-50%, -50%);"></div>
+<body>
+    <div class="container">
+        <header>
+            <h1>Turing Patterns Explorer</h1>
+            <div class="header-info">
+                <span id="fps-display">FPS: --</span>
             </div>
-        </div>
+        </header>
 
-        <!-- Right Control Panel -->
-        <div class="w-80 panel m-3 ml-0 overflow-y-auto">
-            <div class="panel-section p-4">
-                <div class="section-title">Pattern Presets</div>
-                <div id="presetGrid" class="grid grid-cols-2 gap-2"></div>
+        <div class="main-content">
+            <div class="canvas-container">
+                <canvas id="simulation-canvas"></canvas>
             </div>
-            <div class="panel-section p-4">
-                <div class="section-title">Drawing</div>
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="text-sm text-gray-400">Brush Size:</span>
-                    <div class="flex gap-1">
-                        <button id="sizeS" class="btn px-3 py-1 rounded text-xs font-bold">S</button>
-                        <button id="sizeM" class="btn px-3 py-1 rounded text-xs font-bold active">M</button>
-                        <button id="sizeL" class="btn px-3 py-1 rounded text-xs font-bold">L</button>
+
+            <div class="control-panel">
+                <section class="control-section">
+                    <h2>Preset Patterns</h2>
+                    <div class="preset-grid">
+                        <div class="preset-item" data-preset="0">Mitosis</div>
+                        <div class="preset-item" data-preset="1">Coral</div>
+                        <div class="preset-item" data-preset="2">Spots</div>
+                        <div class="preset-item" data-preset="3">Stripes</div>
+                        <div class="preset-item" data-preset="4">Labyrinth</div>
+                        <div class="preset-item" data-preset="5">Waves</div>
+                        <div class="preset-item active" data-preset="6">Bubbles</div>
+                        <div class="preset-item" data-preset="7">Solitons</div>
+                        <div class="preset-item" data-preset="8">Chaos</div>
+                        <div class="preset-item" data-preset="9">Fingerprint</div>
                     </div>
-                </div>
-                <button id="clearBtn" class="btn w-full py-2 rounded-lg text-sm">Clear Canvas</button>
-            </div>
-            <div class="panel-section p-4">
-                <div class="section-title">Symmetry</div>
-                <select id="symmetrySelect" class="w-full">
-                    <option value="0">None</option>
-                    <option value="1">Mirror Horizontal</option>
-                    <option value="2">Mirror Vertical</option>
-                    <option value="3">Radial 4-way</option>
-                    <option value="4">Radial 8-way</option>
-                </select>
-            </div>
-            <div class="panel-section p-4">
-                <div class="collapsible-header flex items-center justify-between" id="morphHeader">
-                    <div class="section-title mb-0">Pattern Morphing</div>
-                    <svg id="morphArrow" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                </div>
-                <div id="morphContent" class="collapsible-content">
-                    <div class="pt-3 space-y-3">
-                        <div>
-                            <label class="text-xs text-gray-400 block mb-1">From:</label>
-                            <select id="morphFromSelect" class="w-full text-sm"></select>
+                </section>
+
+                <section class="control-section">
+                    <h2>Pattern Breeding</h2>
+                    <div class="breeding-controls">
+                        <div class="control-group">
+                            <label for="parent-a-select">Parent A</label>
+                            <select id="parent-a-select"></select>
                         </div>
-                        <div>
-                            <label class="text-xs text-gray-400 block mb-1">To:</label>
-                            <select id="morphToSelect" class="w-full text-sm"></select>
+                        <div class="control-group">
+                            <label for="parent-b-select">Parent B</label>
+                            <select id="parent-b-select"></select>
                         </div>
-                        <div>
-                            <label class="text-xs text-gray-400 block mb-1">Blend: <span id="morphVal">0</span>%</label>
-                            <input type="range" id="morphSlider" min="0" max="100" value="0" class="w-full">
+                        <div class="control-group">
+                            <label for="blend-slider">Blend <span id="blend-value">50%</span></label>
+                            <input type="range" id="blend-slider" min="0" max="100" value="50">
                         </div>
-                        <label class="checkbox-wrapper text-sm">
-                            <input type="checkbox" id="autoMorph">
-                            <span>Auto-morph</span>
-                        </label>
+                        <button id="breed-btn" class="control-btn">Generate Offspring</button>
                     </div>
-                </div>
-            </div>
-            <div class="panel-section p-4">
-                <div class="section-title">Color Palette</div>
-                <div id="colorPalettes" class="grid grid-cols-3 gap-2 mb-3"></div>
-                <button id="customGradientBtn" class="btn w-full py-2 rounded-lg text-sm">Custom Gradient</button>
-            </div>
-            <div class="panel-section p-4">
-                <div class="section-title">Effects</div>
-                <label class="checkbox-wrapper text-sm mb-3">
-                    <input type="checkbox" id="rotateEffect">
-                    <span>Rotate Pattern</span>
-                </label>
-                <div>
-                    <label class="text-sm text-gray-400 block mb-1">Speed: <span id="speedVal">1.0</span>x</label>
-                    <input type="range" id="speed" min="5" max="20" step="1" value="10" class="w-full">
-                </div>
-            </div>
-            <div class="p-4">
-                <div class="section-title">Controls</div>
-                <div class="grid grid-cols-2 gap-2">
-                    <button id="playPauseBtn" class="btn py-2 rounded-lg text-sm flex items-center justify-center gap-2">
-                        <svg id="playIcon" class="w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        <svg id="pauseIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
-                        <span id="playPauseText">Pause</span>
-                    </button>
-                    <button id="resetBtn" class="btn py-2 rounded-lg text-sm">Reset</button>
-                    <button id="randomizeBtn" class="btn py-2 rounded-lg text-sm col-span-2">Randomize Seeds</button>
-                </div>
+                </section>
+
+                <section class="control-section">
+                    <h2>Color Theme</h2>
+                    <div class="control-group">
+                        <select id="theme-select">
+                            <option value="Blood Cells" selected>Blood Cells</option>
+                            <option value="Poison">Poison</option>
+                            <option value="Bruise">Bruise</option>
+                            <option value="Infected">Infected</option>
+                            <option value="Coral Reef">Coral Reef</option>
+                            <option value="Cells">Cells</option>
+                            <option value="Foam">Foam</option>
+                            <option value="Moss">Moss</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="control-section">
+                    <h2>Manual Parameters</h2>
+                    <div class="control-group">
+                        <label for="f-slider">Feed Rate (f): <span id="f-value">0.0380</span></label>
+                        <input type="range" id="f-slider" min="0.010" max="0.100" step="0.001" value="0.0380">
+                    </div>
+                    <div class="control-group">
+                        <label for="k-slider">Kill Rate (k): <span id="k-value">0.0610</span></label>
+                        <input type="range" id="k-slider" min="0.045" max="0.070" step="0.001" value="0.0610">
+                    </div>
+                </section>
+
+                <section class="control-section">
+                    <h2>Simulation Controls</h2>
+                    <div class="button-group">
+                        <button id="play-pause-btn" class="control-btn">Pause</button>
+                        <button id="reset-btn" class="control-btn">Reset</button>
+                    </div>
+                </section>
+
+                <section class="control-section">
+                    <h2>Export</h2>
+                    <div class="export-controls">
+                        <div class="control-group">
+                            <label for="export-scale">Resolution</label>
+                            <select id="export-scale">
+                                <option value="1">1x (256x256)</option>
+                                <option value="2">2x (512x512)</option>
+                                <option value="4">4x (1024x1024)</option>
+                            </select>
+                        </div>
+                        <button id="export-btn" class="control-btn">Export PNG</button>
+                    </div>
+                </section>
+
+                <section class="control-section info-section">
+                    <h3>How to Use</h3>
+                    <p>Click or drag on the canvas to inject chemical B and create bleeding patterns.</p>
+                    <p><strong>Keyboard Shortcuts:</strong></p>
+                    <ul>
+                        <li>Space: Play/Pause</li>
+                        <li>R: Reset</li>
+                        <li>E: Export</li>
+                        <li>1-9: Load presets</li>
+                    </ul>
+                </section>
             </div>
         </div>
     </div>
 
-    <!-- Info Modal -->
-    <div id="infoModal" class="modal fixed inset-0 bg-black/80 hidden items-center justify-center z-50">
-        <div class="panel p-6 max-w-lg mx-4">
-            <h3 class="text-lg font-semibold mb-4">About Turing Patterns</h3>
-            <p class="text-gray-300 mb-3">Turing patterns are mathematical models describing how patterns emerge in nature through chemical reactions and diffusion. First proposed by Alan Turing in 1952.</p>
-            <p class="text-gray-300 mb-3">This simulation uses the Gray-Scott model with two virtual chemicals that react and diffuse across the canvas.</p>
-            <p class="text-gray-300 mb-4"><strong>Tips:</strong><br>- Click and drag to add seeds<br>- Try different presets for unique patterns<br>- Use symmetry for kaleidoscope effects<br>- Morph between presets for hybrid patterns</p>
-            <button id="closeInfo" class="btn w-full py-2 rounded-lg">Close</button>
-        </div>
-    </div>
-
-    <!-- Gradient Editor Modal -->
-    <div id="gradientModal" class="modal fixed inset-0 bg-black/80 hidden items-center justify-center z-50">
-        <div class="panel p-6 w-96 mx-4">
-            <h3 class="text-lg font-semibold mb-4">Custom Gradient</h3>
-            <div id="gradientPreview" class="h-12 rounded-lg mb-4 relative" style="background: linear-gradient(to right, #000, #fff);"></div>
-            <div id="gradientBar" class="h-8 rounded relative cursor-pointer mb-4" style="background: linear-gradient(to right, #000, #fff);"></div>
-            <div class="mb-4">
-                <label class="text-sm text-gray-400 block mb-2">Selected Stop Color:</label>
-                <input type="color" id="stopColor" value="#ffffff" class="w-full h-10 rounded cursor-pointer">
-            </div>
-            <p class="text-xs text-gray-500 mb-4">Click on the gradient bar to add stops. Drag stops to reposition. Double-click to remove.</p>
-            <div class="flex gap-2">
-                <button id="cancelGradient" class="btn flex-1 py-2 rounded-lg text-sm">Cancel</button>
-                <button id="saveGradient" class="btn flex-1 py-2 rounded-lg text-sm bg-indigo-600 hover:bg-indigo-700">Save</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-    // ========== WEBGL TURING PATTERNS STUDIO ==========
-    (() => {
-        // --- Configuration ---
-        const PRESETS = {
-            spots:       { name: 'Spots',       f: 0.055, k: 0.062 },
-            stripes:     { name: 'Stripes',     f: 0.035, k: 0.060 },
-            spirals:     { name: 'Spirals',     f: 0.014, k: 0.054 },
-            coral:       { name: 'Coral',       f: 0.0545, k: 0.062 },
-            worms:       { name: 'Worms',       f: 0.058, k: 0.065 },
-            waves:       { name: 'Waves',       f: 0.018, k: 0.051 },
-            fingerprint: { name: 'Fingerprint', f: 0.040, k: 0.060 },
-            maze:        { name: 'Maze',        f: 0.029, k: 0.057 }
-        };
-
-        const PALETTES = {
-            grayscale: { name: 'Grayscale', colors: [[0,0,0],[128,128,128],[255,255,255]] },
-            ocean:     { name: 'Ocean',     colors: [[10,25,50],[30,80,120],[50,150,180],[150,220,230],[255,255,255]] },
-            fire:      { name: 'Fire',      colors: [[0,0,0],[139,0,0],[255,69,0],[255,165,0],[255,255,0]] },
-            forest:    { name: 'Forest',    colors: [[10,40,20],[30,80,40],[50,140,70],[100,200,120],[200,255,200]] },
-            sunset:    { name: 'Sunset',    colors: [[40,20,80],[120,40,100],[200,80,80],[255,150,50],[255,220,100]] },
-            neon:      { name: 'Neon',      colors: [[0,0,0],[80,0,120],[200,0,200],[0,200,255],[255,255,255]] }
-        };
-
-        const W = 512, H = 512;
-
-        // --- State ---
-        let currentPreset = 'spots';
-        let feedRate = PRESETS.spots.f;
-        let killRate = PRESETS.spots.k;
-        let currentPalette = 'ocean';
-        let customGradient = null;
-        let paused = false;
-        let brushSize = 10;
-        let simSpeed = 10;
-        let symmetryMode = 0;
-        let rotateEnabled = false;
-        let rotationAngle = 0;
-        let morphFrom = 'spots', morphTo = 'stripes';
-        let morphValue = 0;
-        let autoMorphEnabled = false;
-        let autoMorphDir = 1;
-        let isDrawing = false;
-
-        // Gradient editor state
-        let gradientStops = [{ pos: 0, color: '#000000' }, { pos: 1, color: '#ffffff' }];
-        let selectedStop = null;
-        let draggingStop = null;
-
-        // --- WebGL Setup ---
-        const canvas = document.getElementById('canvas');
-        const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
-        if (!gl) { alert('WebGL not supported'); return; }
-
-        // Enable float textures
-        const floatExt = gl.getExtension('OES_texture_float');
-        if (!floatExt) { alert('OES_texture_float not supported'); return; }
-
-        // --- Shader Sources ---
-        const quadVert = `
-            attribute vec2 a_pos;
-            varying vec2 v_uv;
-            void main() {
-                v_uv = a_pos * 0.5 + 0.5;
-                gl_Position = vec4(a_pos, 0.0, 1.0);
-            }
-        `;
-
-        // Simulation shader - Gray-Scott reaction-diffusion
-        const simFrag = `
-            precision highp float;
-            varying vec2 v_uv;
-            uniform sampler2D u_state;
-            uniform vec2 u_texel;
-            uniform float u_feed;
-            uniform float u_kill;
-            uniform float u_dA;
-            uniform float u_dB;
-
-            void main() {
-                vec2 ab = texture2D(u_state, v_uv).rg;
-                float a = ab.r;
-                float b = ab.g;
-
-                // 5-point Laplacian stencil
-                vec2 L = texture2D(u_state, v_uv + vec2(-u_texel.x, 0.0)).rg;
-                vec2 R = texture2D(u_state, v_uv + vec2( u_texel.x, 0.0)).rg;
-                vec2 U = texture2D(u_state, v_uv + vec2(0.0,  u_texel.y)).rg;
-                vec2 D = texture2D(u_state, v_uv + vec2(0.0, -u_texel.y)).rg;
-
-                float lapA = L.r + R.r + U.r + D.r - 4.0 * a;
-                float lapB = L.g + R.g + U.g + D.g - 4.0 * b;
-
-                float abb = a * b * b;
-                float newA = a + u_dA * lapA - abb + u_feed * (1.0 - a);
-                float newB = b + u_dB * lapB + abb - (u_kill + u_feed) * b;
-
-                gl_FragColor = vec4(clamp(newA, 0.0, 1.0), clamp(newB, 0.0, 1.0), 0.0, 1.0);
-            }
-        `;
-
-        // Brush shader - adds chemical B at brush locations
-        const brushFrag = `
-            precision highp float;
-            varying vec2 v_uv;
-            uniform sampler2D u_state;
-            uniform vec2 u_brushPos;
-            uniform float u_brushRadius;
-            uniform int u_symmetry;
-
-            float brushHit(vec2 uv, vec2 center, float radius) {
-                float d = distance(uv, center);
-                return smoothstep(radius, radius * 0.5, d);
-            }
-
-            void main() {
-                vec2 ab = texture2D(u_state, v_uv).rg;
-                float hit = 0.0;
-                vec2 bp = u_brushPos;
-                float r = u_brushRadius;
-
-                hit += brushHit(v_uv, bp, r);
-
-                if (u_symmetry == 1) { // H-mirror
-                    hit += brushHit(v_uv, vec2(1.0 - bp.x, bp.y), r);
-                } else if (u_symmetry == 2) { // V-mirror
-                    hit += brushHit(v_uv, vec2(bp.x, 1.0 - bp.y), r);
-                } else if (u_symmetry == 3) { // Radial-4
-                    hit += brushHit(v_uv, vec2(1.0 - bp.x, bp.y), r);
-                    hit += brushHit(v_uv, vec2(bp.x, 1.0 - bp.y), r);
-                    hit += brushHit(v_uv, vec2(1.0 - bp.x, 1.0 - bp.y), r);
-                } else if (u_symmetry == 4) { // Radial-8
-                    vec2 center = vec2(0.5);
-                    vec2 d = bp - center;
-                    for (int i = 1; i < 8; i++) {
-                        float angle = float(i) * 0.7853981633974483; // PI/4
-                        float c = cos(angle);
-                        float s = sin(angle);
-                        vec2 rp = center + vec2(d.x * c - d.y * s, d.x * s + d.y * c);
-                        hit += brushHit(v_uv, rp, r);
-                    }
-                }
-
-                hit = clamp(hit, 0.0, 1.0);
-                float newA = mix(ab.r, 0.0, hit);
-                float newB = mix(ab.g, 1.0, hit);
-                gl_FragColor = vec4(newA, newB, 0.0, 1.0);
-            }
-        `;
-
-        // Render shader - maps chemical B concentration to color
-        const renderFrag = `
-            precision highp float;
-            varying vec2 v_uv;
-            uniform sampler2D u_state;
-            uniform sampler2D u_palette;
-            uniform float u_rotation;
-            uniform bool u_rotate;
-
-            void main() {
-                vec2 uv = v_uv;
-                if (u_rotate) {
-                    vec2 center = vec2(0.5);
-                    vec2 d = uv - center;
-                    float c = cos(u_rotation);
-                    float s = sin(u_rotation);
-                    uv = center + vec2(d.x * c - d.y * s, d.x * s + d.y * c);
-                    uv = fract(uv);
-                }
-                float b = texture2D(u_state, uv).g;
-                vec3 color = texture2D(u_palette, vec2(b, 0.5)).rgb;
-                gl_FragColor = vec4(color, 1.0);
-            }
-        `;
-
-        // --- Compile Shaders ---
-        function createShader(src, type) {
-            const s = gl.createShader(type);
-            gl.shaderSource(s, src);
-            gl.compileShader(s);
-            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-                console.error('Shader error:', gl.getShaderInfoLog(s));
-                return null;
-            }
-            return s;
-        }
-
-        function createProgram(vs, fs) {
-            const p = gl.createProgram();
-            gl.attachShader(p, createShader(vs, gl.VERTEX_SHADER));
-            gl.attachShader(p, createShader(fs, gl.FRAGMENT_SHADER));
-            gl.linkProgram(p);
-            if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-                console.error('Program error:', gl.getProgramInfoLog(p));
-                return null;
-            }
-            return p;
-        }
-
-        const simProg = createProgram(quadVert, simFrag);
-        const brushProg = createProgram(quadVert, brushFrag);
-        const renderProg = createProgram(quadVert, renderFrag);
-
-        // --- Get Uniform Locations ---
-        const simUniforms = {
-            state: gl.getUniformLocation(simProg, 'u_state'),
-            texel: gl.getUniformLocation(simProg, 'u_texel'),
-            feed: gl.getUniformLocation(simProg, 'u_feed'),
-            kill: gl.getUniformLocation(simProg, 'u_kill'),
-            dA: gl.getUniformLocation(simProg, 'u_dA'),
-            dB: gl.getUniformLocation(simProg, 'u_dB')
-        };
-        const brushUniforms = {
-            state: gl.getUniformLocation(brushProg, 'u_state'),
-            brushPos: gl.getUniformLocation(brushProg, 'u_brushPos'),
-            brushRadius: gl.getUniformLocation(brushProg, 'u_brushRadius'),
-            symmetry: gl.getUniformLocation(brushProg, 'u_symmetry')
-        };
-        const renderUniforms = {
-            state: gl.getUniformLocation(renderProg, 'u_state'),
-            palette: gl.getUniformLocation(renderProg, 'u_palette'),
-            rotation: gl.getUniformLocation(renderProg, 'u_rotation'),
-            rotate: gl.getUniformLocation(renderProg, 'u_rotate')
-        };
-
-        // --- Create Quad ---
-        const quadBuf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-
-        function setupAttribs(prog) {
-            const loc = gl.getAttribLocation(prog, 'a_pos');
-            gl.enableVertexAttribArray(loc);
-            gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-        }
-
-        // --- Create Framebuffers (ping-pong) ---
-        function createFBO() {
-            const tex = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.FLOAT, null);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-            const fb = gl.createFramebuffer();
-            gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-            return { tex, fb };
-        }
-
-        let fbo0 = createFBO();
-        let fbo1 = createFBO();
-
-        // --- Palette Texture ---
-        let paletteTex = gl.createTexture();
-
-        function updatePaletteTexture() {
-            const size = 256;
-            const data = new Uint8Array(size * 4);
-            let colors, positions;
-
-            if (customGradient) {
-                colors = customGradient.map(s => hexToRgb(s.color));
-                positions = customGradient.map(s => s.pos);
-            } else {
-                const pal = PALETTES[currentPalette].colors;
-                colors = pal;
-                positions = pal.map((_, i) => i / (pal.length - 1));
-            }
-
-            for (let i = 0; i < size; i++) {
-                const t = i / (size - 1);
-                let r = 0, g = 0, b = 0;
-                for (let j = 0; j < positions.length - 1; j++) {
-                    if (t >= positions[j] && t <= positions[j + 1]) {
-                        const lt = (t - positions[j]) / (positions[j + 1] - positions[j]);
-                        const c1 = colors[j], c2 = colors[j + 1];
-                        r = c1[0] + (c2[0] - c1[0]) * lt;
-                        g = c1[1] + (c2[1] - c1[1]) * lt;
-                        b = c1[2] + (c2[2] - c1[2]) * lt;
-                        break;
-                    }
-                }
-                if (t >= positions[positions.length - 1]) {
-                    const c = colors[colors.length - 1];
-                    r = c[0]; g = c[1]; b = c[2];
-                }
-                data[i * 4] = Math.round(r);
-                data[i * 4 + 1] = Math.round(g);
-                data[i * 4 + 2] = Math.round(b);
-                data[i * 4 + 3] = 255;
-            }
-
-            gl.bindTexture(gl.TEXTURE_2D, paletteTex);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        }
-
-        // --- Initialize Grid ---
-        function initGrid() {
-            const data = new Float32Array(W * H * 4);
-            for (let i = 0; i < W * H; i++) {
-                data[i * 4] = 1.0;     // A = 1
-                data[i * 4 + 1] = 0.0; // B = 0
-                data[i * 4 + 2] = 0.0;
-                data[i * 4 + 3] = 1.0;
-            }
-            // Random seeds
-            const numSeeds = 20 + Math.floor(Math.random() * 20);
-            for (let s = 0; s < numSeeds; s++) {
-                const cx = Math.floor(Math.random() * W);
-                const cy = Math.floor(Math.random() * H);
-                const r = 3 + Math.floor(Math.random() * 6);
-                for (let dy = -r; dy <= r; dy++) {
-                    for (let dx = -r; dx <= r; dx++) {
-                        if (dx * dx + dy * dy <= r * r) {
-                            const x = (cx + dx + W) % W;
-                            const y = (cy + dy + H) % H;
-                            const idx = (y * W + x) * 4;
-                            data[idx] = 0.0;
-                            data[idx + 1] = 1.0;
-                        }
-                    }
-                }
-            }
-
-            gl.bindTexture(gl.TEXTURE_2D, fbo0.tex);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.FLOAT, data);
-            gl.bindTexture(gl.TEXTURE_2D, fbo1.tex);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.FLOAT, data);
-        }
-
-        function clearGrid() {
-            const data = new Float32Array(W * H * 4);
-            for (let i = 0; i < W * H; i++) {
-                data[i * 4] = 1.0;
-                data[i * 4 + 1] = 0.0;
-                data[i * 4 + 2] = 0.0;
-                data[i * 4 + 3] = 1.0;
-            }
-            gl.bindTexture(gl.TEXTURE_2D, fbo0.tex);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.FLOAT, data);
-        }
-
-        // --- Simulation Step ---
-        function simulateStep() {
-            gl.useProgram(simProg);
-            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-            setupAttribs(simProg);
-
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, fbo0.tex);
-            gl.uniform1i(simUniforms.state, 0);
-            gl.uniform2f(simUniforms.texel, 1.0 / W, 1.0 / H);
-            gl.uniform1f(simUniforms.feed, feedRate);
-            gl.uniform1f(simUniforms.kill, killRate);
-            gl.uniform1f(simUniforms.dA, 1.0);
-            gl.uniform1f(simUniforms.dB, 0.5);
-
-            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo1.fb);
-            gl.viewport(0, 0, W, H);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-            // Swap
-            [fbo0, fbo1] = [fbo1, fbo0];
-        }
-
-        // --- Brush Application ---
-        let brushQueue = [];
-
-        function applyBrush(normX, normY) {
-            gl.useProgram(brushProg);
-            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-            setupAttribs(brushProg);
-
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, fbo0.tex);
-            gl.uniform1i(brushUniforms.state, 0);
-            gl.uniform2f(brushUniforms.brushPos, normX, normY);
-            gl.uniform1f(brushUniforms.brushRadius, brushSize / W);
-            gl.uniform1i(brushUniforms.symmetry, symmetryMode);
-
-            gl.bindFramebuffer(gl.FRAMEBUFFER, fbo1.fb);
-            gl.viewport(0, 0, W, H);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-            [fbo0, fbo1] = [fbo1, fbo0];
-        }
-
-        // --- Render ---
-        function renderToScreen() {
-            gl.useProgram(renderProg);
-            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-            setupAttribs(renderProg);
-
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, fbo0.tex);
-            gl.uniform1i(renderUniforms.state, 0);
-
-            gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, paletteTex);
-            gl.uniform1i(renderUniforms.palette, 1);
-
-            gl.uniform1f(renderUniforms.rotation, rotationAngle);
-            gl.uniform1i(renderUniforms.rotate, rotateEnabled ? 1 : 0);
-
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            gl.viewport(0, 0, W, H);
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        }
-
-        // --- Animation Loop ---
-        function animate() {
-            if (!paused) {
-                // Update morph
-                if (morphValue > 0 || autoMorphEnabled) {
-                    const fromP = PRESETS[morphFrom];
-                    const toP = PRESETS[morphTo];
-                    const t = morphValue / 100;
-                    feedRate = fromP.f + (toP.f - fromP.f) * t;
-                    killRate = fromP.k + (toP.k - fromP.k) * t;
-                }
-
-                if (autoMorphEnabled) {
-                    morphValue += autoMorphDir * 0.3;
-                    if (morphValue >= 100) { morphValue = 100; autoMorphDir = -1; }
-                    else if (morphValue <= 0) { morphValue = 0; autoMorphDir = 1; }
-                    document.getElementById('morphSlider').value = morphValue;
-                    document.getElementById('morphVal').textContent = Math.round(morphValue);
-                }
-
-                // Rotation
-                if (rotateEnabled) rotationAngle += 0.002;
-
-                // Simulation steps
-                for (let i = 0; i < simSpeed; i++) {
-                    simulateStep();
-                }
-            }
-
-            // Process brush queue
-            while (brushQueue.length > 0) {
-                const { x, y } = brushQueue.shift();
-                applyBrush(x, y);
-            }
-
-            renderToScreen();
-            requestAnimationFrame(animate);
-        }
-
-        // --- Helpers ---
-        function hexToRgb(hex) {
-            const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [0,0,0];
-        }
-
-        function getCanvasCoords(e) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: (e.clientX - rect.left) / rect.width,
-                y: 1.0 - (e.clientY - rect.top) / rect.height // Flip Y for WebGL
-            };
-        }
-
-        // --- UI Setup ---
-        // Preset buttons
-        const presetGrid = document.getElementById('presetGrid');
-        Object.entries(PRESETS).forEach(([key, preset]) => {
-            const btn = document.createElement('button');
-            btn.className = 'preset-btn p-2 rounded-lg text-center text-sm';
-            btn.textContent = preset.name;
-            if (key === currentPreset) btn.classList.add('active');
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentPreset = key;
-                feedRate = PRESETS[key].f;
-                killRate = PRESETS[key].k;
-                morphValue = 0;
-                document.getElementById('morphSlider').value = 0;
-                document.getElementById('morphVal').textContent = '0';
-            });
-            presetGrid.appendChild(btn);
-        });
-
-        // Color palettes
-        const colorPalettes = document.getElementById('colorPalettes');
-        Object.entries(PALETTES).forEach(([key, palette]) => {
-            const swatch = document.createElement('button');
-            swatch.className = 'color-swatch w-full h-8 rounded-lg';
-            const stops = palette.colors.map((c, i) =>
-                `rgb(${c[0]},${c[1]},${c[2]}) ${i * 100 / (palette.colors.length-1)}%`
-            ).join(', ');
-            swatch.style.background = `linear-gradient(90deg, ${stops})`;
-            swatch.title = palette.name;
-            if (key === currentPalette) swatch.classList.add('active');
-            swatch.addEventListener('click', () => {
-                document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-                swatch.classList.add('active');
-                currentPalette = key;
-                customGradient = null;
-                updatePaletteTexture();
-            });
-            colorPalettes.appendChild(swatch);
-        });
-
-        // Brush size
-        const sizes = { S: 5, M: 10, L: 20 };
-        ['S','M','L'].forEach(size => {
-            document.getElementById('size' + size).addEventListener('click', () => {
-                brushSize = sizes[size];
-                ['S','M','L'].forEach(s => document.getElementById('size'+s).classList.remove('active'));
-                document.getElementById('size' + size).classList.add('active');
-            });
-        });
-
-        // Speed
-        document.getElementById('speed').addEventListener('input', e => {
-            simSpeed = parseInt(e.target.value);
-            document.getElementById('speedVal').textContent = (simSpeed / 10).toFixed(1);
-        });
-
-        // Symmetry
-        document.getElementById('symmetrySelect').addEventListener('change', e => {
-            symmetryMode = parseInt(e.target.value);
-        });
-
-        // Morph controls
-        const morphFromSelect = document.getElementById('morphFromSelect');
-        const morphToSelect = document.getElementById('morphToSelect');
-        Object.entries(PRESETS).forEach(([key, preset]) => {
-            const opt1 = new Option(preset.name, key, false, key === morphFrom);
-            const opt2 = new Option(preset.name, key, false, key === morphTo);
-            morphFromSelect.appendChild(opt1);
-            morphToSelect.appendChild(opt2);
-        });
-        morphFromSelect.addEventListener('change', e => morphFrom = e.target.value);
-        morphToSelect.addEventListener('change', e => morphTo = e.target.value);
-
-        document.getElementById('morphSlider').addEventListener('input', e => {
-            morphValue = parseInt(e.target.value);
-            document.getElementById('morphVal').textContent = morphValue;
-        });
-        document.getElementById('autoMorph').addEventListener('change', e => {
-            autoMorphEnabled = e.target.checked;
-        });
-        document.getElementById('morphHeader').addEventListener('click', () => {
-            document.getElementById('morphContent').classList.toggle('open');
-            document.getElementById('morphArrow').classList.toggle('rotate-180');
-        });
-
-        // Rotate effect
-        document.getElementById('rotateEffect').addEventListener('change', e => {
-            rotateEnabled = e.target.checked;
-            if (!rotateEnabled) rotationAngle = 0;
-        });
-
-        // Controls
-        document.getElementById('playPauseBtn').addEventListener('click', () => {
-            paused = !paused;
-            document.getElementById('playPauseText').textContent = paused ? 'Play' : 'Pause';
-            document.getElementById('playIcon').classList.toggle('hidden', !paused);
-            document.getElementById('pauseIcon').classList.toggle('hidden', paused);
-        });
-        document.getElementById('resetBtn').addEventListener('click', initGrid);
-        document.getElementById('randomizeBtn').addEventListener('click', initGrid);
-        document.getElementById('clearBtn').addEventListener('click', clearGrid);
-
-        // Canvas mouse events
-        canvas.addEventListener('mousedown', e => {
-            isDrawing = true;
-            const { x, y } = getCanvasCoords(e);
-            brushQueue.push({ x, y });
-        });
-        canvas.addEventListener('mousemove', e => {
-            const rect = canvas.getBoundingClientRect();
-            const cursor = document.getElementById('brushCursor');
-            cursor.style.left = (e.clientX - rect.left + canvas.offsetLeft) + 'px';
-            cursor.style.top = (e.clientY - rect.top + canvas.offsetTop) + 'px';
-            cursor.style.width = (brushSize * 2 * rect.width / W) + 'px';
-            cursor.style.height = (brushSize * 2 * rect.height / H) + 'px';
-            cursor.classList.remove('hidden');
-            if (isDrawing) {
-                const { x, y } = getCanvasCoords(e);
-                brushQueue.push({ x, y });
-            }
-        });
-        canvas.addEventListener('mouseup', () => isDrawing = false);
-        canvas.addEventListener('mouseleave', () => {
-            isDrawing = false;
-            document.getElementById('brushCursor').classList.add('hidden');
-        });
-
-        // Touch support
-        canvas.addEventListener('touchstart', e => {
-            e.preventDefault();
-            isDrawing = true;
-            const touch = e.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            brushQueue.push({
-                x: (touch.clientX - rect.left) / rect.width,
-                y: 1.0 - (touch.clientY - rect.top) / rect.height
-            });
-        }, { passive: false });
-
-        canvas.addEventListener('touchmove', e => {
-            e.preventDefault();
-            if (isDrawing) {
-                const touch = e.touches[0];
-                const rect = canvas.getBoundingClientRect();
-                brushQueue.push({
-                    x: (touch.clientX - rect.left) / rect.width,
-                    y: 1.0 - (touch.clientY - rect.top) / rect.height
-                });
-            }
-        }, { passive: false });
-
-        canvas.addEventListener('touchend', () => isDrawing = false);
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', e => {
-            if (e.key === ' ') { e.preventDefault(); document.getElementById('playPauseBtn').click(); }
-            if (e.key === 'r') document.getElementById('resetBtn').click();
-            if (e.key === 'c') document.getElementById('clearBtn').click();
-        });
-
-        // Info modal
-        document.getElementById('infoBtn').addEventListener('click', () => {
-            document.getElementById('infoModal').classList.remove('hidden');
-            document.getElementById('infoModal').classList.add('flex');
-        });
-        document.getElementById('closeInfo').addEventListener('click', () => {
-            document.getElementById('infoModal').classList.add('hidden');
-            document.getElementById('infoModal').classList.remove('flex');
-        });
-
-        // Gradient Editor
-        function updateGradientDisplay() {
-            const sorted = [...gradientStops].sort((a, b) => a.pos - b.pos);
-            const grad = sorted.map(s => `${s.color} ${s.pos * 100}%`).join(', ');
-            document.getElementById('gradientBar').style.background = `linear-gradient(to right, ${grad})`;
-            document.getElementById('gradientPreview').style.background = `linear-gradient(to right, ${grad})`;
-        }
-
-        function renderGradientStops() {
-            const bar = document.getElementById('gradientBar');
-            bar.querySelectorAll('.gradient-stop').forEach(el => el.remove());
-            gradientStops.forEach((stop, index) => {
-                const el = document.createElement('div');
-                el.className = 'gradient-stop';
-                el.style.left = stop.pos * 100 + '%';
-                el.style.top = '50%';
-                el.style.background = stop.color;
-                el.dataset.index = index;
-                el.addEventListener('mousedown', e => {
-                    e.stopPropagation();
-                    selectedStop = index;
-                    document.getElementById('stopColor').value = gradientStops[index].color;
-                });
-                el.addEventListener('dblclick', e => {
-                    e.stopPropagation();
-                    if (gradientStops.length > 2) {
-                        gradientStops.splice(index, 1);
-                        renderGradientStops();
-                        updateGradientDisplay();
-                    }
-                });
-                bar.appendChild(el);
-            });
-        }
-
-        document.getElementById('gradientBar').addEventListener('mousedown', e => {
-            if (e.target.classList.contains('gradient-stop')) return;
-            const rect = e.target.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
-            gradientStops.push({ pos, color: document.getElementById('stopColor').value });
-            renderGradientStops();
-            updateGradientDisplay();
-            selectedStop = gradientStops.length - 1;
-        });
-
-        document.getElementById('stopColor').addEventListener('input', e => {
-            if (selectedStop !== null && gradientStops[selectedStop]) {
-                gradientStops[selectedStop].color = e.target.value;
-                renderGradientStops();
-                updateGradientDisplay();
-            }
-        });
-
-        document.addEventListener('mousedown', e => {
-            if (e.target.classList.contains('gradient-stop')) {
-                draggingStop = parseInt(e.target.dataset.index);
-            }
-        });
-        document.addEventListener('mousemove', e => {
-            if (draggingStop !== null) {
-                const bar = document.getElementById('gradientBar');
-                const rect = bar.getBoundingClientRect();
-                gradientStops[draggingStop].pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                renderGradientStops();
-                updateGradientDisplay();
-            }
-        });
-        document.addEventListener('mouseup', () => draggingStop = null);
-
-        document.getElementById('customGradientBtn').addEventListener('click', () => {
-            gradientStops = [
-                { pos: 0, color: '#000000' },
-                { pos: 0.5, color: '#4f46e5' },
-                { pos: 1, color: '#ffffff' }
-            ];
-            selectedStop = null;
-            renderGradientStops();
-            updateGradientDisplay();
-            document.getElementById('gradientModal').classList.remove('hidden');
-            document.getElementById('gradientModal').classList.add('flex');
-        });
-        document.getElementById('cancelGradient').addEventListener('click', () => {
-            document.getElementById('gradientModal').classList.add('hidden');
-            document.getElementById('gradientModal').classList.remove('flex');
-        });
-        document.getElementById('saveGradient').addEventListener('click', () => {
-            customGradient = [...gradientStops].sort((a, b) => a.pos - b.pos);
-            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-            document.getElementById('gradientModal').classList.add('hidden');
-            document.getElementById('gradientModal').classList.remove('flex');
-            updatePaletteTexture();
-        });
-
-        // --- Start ---
-        updatePaletteTexture();
-        initGrid();
-        animate();
-        console.log('Turing Patterns Studio (WebGL) initialized!');
-    })();
-    </script>
+    <!-- Load scripts in order -->
+    <script src="js/presets.js"></script>
+    <script src="js/simulation.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/breeding.js"></script>
+    <script src="js/interaction.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,314 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #0a0a0f;
+    color: #c8c8d0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+/* Header */
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid #1a1a2e;
+}
+
+header h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #e0e0f0;
+    letter-spacing: -0.02em;
+}
+
+.header-info {
+    font-size: 0.8rem;
+    color: #666;
+    font-family: 'Courier New', monospace;
+}
+
+/* Main Layout */
+.main-content {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    min-height: calc(100vh - 70px);
+}
+
+/* Canvas */
+.canvas-container {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10px;
+}
+
+#simulation-canvas {
+    width: 100%;
+    max-width: 512px;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    border: 1px solid #1a1a2e;
+    cursor: crosshair;
+    image-rendering: pixelated;
+    background: #000;
+}
+
+/* Control Panel */
+.control-panel {
+    width: 300px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: calc(100vh - 90px);
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a3e #0a0a0f;
+}
+
+.control-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.control-panel::-webkit-scrollbar-track {
+    background: #0a0a0f;
+}
+
+.control-panel::-webkit-scrollbar-thumb {
+    background: #2a2a3e;
+    border-radius: 3px;
+}
+
+/* Control Sections */
+.control-section {
+    background: #111118;
+    border: 1px solid #1a1a2e;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+}
+
+.control-section h2 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #666;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+/* Preset Grid */
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.preset-item {
+    padding: 8px 10px;
+    background: #1a1a28;
+    border: 1px solid #252538;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.preset-item:hover {
+    background: #222238;
+    border-color: #3a3a5e;
+}
+
+.preset-item.active {
+    background: #2a2a50;
+    border-color: #5050a0;
+    color: #c0c0ff;
+}
+
+/* Control Groups */
+.control-group {
+    margin-bottom: 10px;
+}
+
+.control-group:last-child {
+    margin-bottom: 0;
+}
+
+.control-group label {
+    display: block;
+    font-size: 0.78rem;
+    color: #888;
+    margin-bottom: 5px;
+}
+
+.control-group label span {
+    color: #aaa;
+    font-family: 'Courier New', monospace;
+}
+
+/* Range Inputs */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: #1a1a2e;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #5050a0;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: #6060b0;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #5050a0;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+/* Select Inputs */
+select {
+    width: 100%;
+    padding: 8px 10px;
+    background: #1a1a28;
+    border: 1px solid #252538;
+    border-radius: 6px;
+    color: #c8c8d0;
+    font-size: 0.82rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+select:hover {
+    border-color: #3a3a5e;
+}
+
+select:focus {
+    border-color: #5050a0;
+}
+
+/* Buttons */
+.control-btn {
+    width: 100%;
+    padding: 9px 14px;
+    background: #1a1a28;
+    border: 1px solid #252538;
+    border-radius: 6px;
+    color: #c8c8d0;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.control-btn:hover {
+    background: #222238;
+    border-color: #3a3a5e;
+}
+
+.control-btn:active {
+    background: #2a2a40;
+}
+
+/* Button Groups */
+.button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+/* Breeding Controls */
+.breeding-controls .control-group {
+    margin-bottom: 8px;
+}
+
+/* Export Controls */
+.export-controls .control-group {
+    margin-bottom: 8px;
+}
+
+/* Info Section */
+.info-section {
+    background: transparent;
+    border: 1px solid #151520;
+    color: #555;
+}
+
+.info-section h3 {
+    font-size: 0.78rem;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.info-section p {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    margin-bottom: 6px;
+}
+
+.info-section strong {
+    color: #777;
+}
+
+.info-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.info-section li {
+    font-size: 0.72rem;
+    padding: 2px 0;
+    color: #555;
+}
+
+.info-section li::before {
+    content: '>';
+    margin-right: 6px;
+    color: #444;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+
+    .control-panel {
+        width: 100%;
+        max-height: none;
+    }
+
+    #simulation-canvas {
+        max-width: 100%;
+    }
+}
