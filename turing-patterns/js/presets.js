@@ -1,82 +1,153 @@
-// presets.js - Gray-Scott parameter presets and color themes
-window.TuringApp = window.TuringApp || {};
+// Preset definitions for all three models
 
-TuringApp.PRESETS = [
-    { name: 'Mitosis',      f: 0.0367, k: 0.0649 },
-    { name: 'Coral',        f: 0.0545, k: 0.0620 },
-    { name: 'Spots',        f: 0.0350, k: 0.0650 },
-    { name: 'Stripes',      f: 0.0400, k: 0.0600 },
-    { name: 'Labyrinth',    f: 0.0290, k: 0.0570 },
-    { name: 'Waves',        f: 0.0140, k: 0.0450 },
-    { name: 'Bubbles',      f: 0.0380, k: 0.0610 },
-    { name: 'Solitons',     f: 0.0300, k: 0.0620 },
-    { name: 'Chaos',        f: 0.0260, k: 0.0510 },
-    { name: 'Fingerprint',  f: 0.0550, k: 0.0620 }
+export const presets = [
+    // ── Gray-Scott ──────────────────────────────
+    {
+        name: 'Mitosis',
+        model: 'gray-scott',
+        params: { F: 0.028, k: 0.062, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'center-seed',
+        display: 1,
+        colormap: 'Viridis',
+        displayRange: [0, 1],
+        description: 'Self-replicating spots',
+    },
+    {
+        name: 'Coral Growth',
+        model: 'gray-scott',
+        params: { F: 0.062, k: 0.063, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'center-seed',
+        display: 1,
+        colormap: 'Inferno',
+        displayRange: [0, 1],
+        description: 'Branching coral-like fingers',
+    },
+    {
+        name: 'Maze',
+        model: 'gray-scott',
+        params: { F: 0.029, k: 0.057, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'center-seed',
+        display: 1,
+        colormap: 'Plasma',
+        displayRange: [0, 1],
+        description: 'Labyrinthine winding channels',
+    },
+    {
+        name: 'Spots',
+        model: 'gray-scott',
+        params: { F: 0.035, k: 0.065, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'center-seed',
+        display: 1,
+        colormap: 'Viridis',
+        displayRange: [0, 1],
+        description: 'Stable spotted pattern',
+    },
+    {
+        name: 'Stripes',
+        model: 'gray-scott',
+        params: { F: 0.04, k: 0.06, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'center-seed',
+        display: 1,
+        colormap: 'Magma',
+        displayRange: [0, 1],
+        description: 'Parallel stripe formation',
+    },
+    {
+        name: 'Worms',
+        model: 'gray-scott',
+        params: { F: 0.078, k: 0.061, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'multi-seed',
+        display: 1,
+        colormap: 'Turbo',
+        displayRange: [0, 1],
+        description: 'Worm-like moving structures',
+    },
+    {
+        name: 'Bubbles',
+        model: 'gray-scott',
+        params: { F: 0.012, k: 0.05, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'center-seed',
+        display: 1,
+        colormap: 'Inferno',
+        displayRange: [0, 1],
+        description: 'Expanding bubble fronts',
+    },
+    {
+        name: 'Chaos',
+        model: 'gray-scott',
+        params: { F: 0.026, k: 0.051, Du: 0.21, Dv: 0.105, dt: 1.0 },
+        init: 'multi-seed',
+        display: 1,
+        colormap: 'Plasma',
+        displayRange: [0, 1],
+        description: 'Turbulent, chaotic dynamics',
+    },
+
+    // ── FitzHugh-Nagumo ─────────────────────────
+    {
+        name: 'Spiral Waves',
+        model: 'fitzhugh-nagumo',
+        params: { Du: 0.2, Dv: 0.05, stimulus: 0.0, epsilon: 0.01, a1: 1.0, a0: 0.0, dt: 0.05 },
+        init: 'multi-seed',
+        display: 0,
+        colormap: 'Plasma',
+        displayRange: [-1.5, 1.5],
+        description: 'Classic spiral wave formation',
+    },
+    {
+        name: 'Labyrinth (FHN)',
+        model: 'fitzhugh-nagumo',
+        params: { Du: 0.2, Dv: 0.05, stimulus: 0.0, epsilon: 0.05, a1: 2.0, a0: 0.0, dt: 0.05 },
+        init: 'random-noise',
+        display: 0,
+        colormap: 'Viridis',
+        displayRange: [-1.5, 1.5],
+        description: 'Static labyrinth pattern',
+    },
+    {
+        name: 'Target Waves',
+        model: 'fitzhugh-nagumo',
+        params: { Du: 0.2, Dv: 0.05, stimulus: 0.1, epsilon: 0.01, a1: 1.0, a0: 0.0, dt: 0.05 },
+        init: 'center-seed',
+        display: 0,
+        colormap: 'Turbo',
+        displayRange: [-1.5, 1.5],
+        description: 'Expanding concentric rings',
+    },
+
+    // ── Brusselator ─────────────────────────────
+    {
+        name: 'Hexagons',
+        model: 'brusselator',
+        params: { A_feed: 4.5, B_feed: 8.0, Du: 1.0, Dv: 8.0, dt: 0.01 },
+        init: 'random-noise',
+        display: 0,
+        colormap: 'Turbo',
+        displayRange: [0, 8],
+        description: 'Honeycomb hex pattern',
+    },
+    {
+        name: 'Brusselator Stripes',
+        model: 'brusselator',
+        params: { A_feed: 4.5, B_feed: 6.5, Du: 1.0, Dv: 8.0, dt: 0.01 },
+        init: 'random-noise',
+        display: 0,
+        colormap: 'Magma',
+        displayRange: [0, 8],
+        description: 'Parallel stripe formation',
+    },
+    {
+        name: 'Brusselator Spots',
+        model: 'brusselator',
+        params: { A_feed: 3.0, B_feed: 10.0, Du: 1.0, Dv: 8.0, dt: 0.01 },
+        init: 'random-noise',
+        display: 0,
+        colormap: 'Inferno',
+        displayRange: [0, 8],
+        description: 'Isolated spot array',
+    },
 ];
 
-TuringApp.COLOR_THEMES = {
-    'Blood Cells': [
-        [10, 0, 0],
-        [80, 5, 5],
-        [160, 20, 15],
-        [220, 50, 30],
-        [255, 120, 90],
-        [255, 200, 180]
-    ],
-    'Poison': [
-        [0, 5, 0],
-        [10, 50, 5],
-        [30, 120, 15],
-        [60, 200, 30],
-        [120, 255, 80],
-        [200, 255, 160]
-    ],
-    'Bruise': [
-        [5, 0, 15],
-        [30, 5, 60],
-        [60, 15, 120],
-        [100, 30, 170],
-        [160, 80, 200],
-        [220, 160, 240]
-    ],
-    'Infected': [
-        [5, 5, 0],
-        [30, 50, 5],
-        [80, 100, 15],
-        [140, 170, 25],
-        [200, 220, 60],
-        [240, 255, 120]
-    ],
-    'Coral Reef': [
-        [0, 8, 25],
-        [10, 50, 90],
-        [30, 110, 150],
-        [70, 170, 200],
-        [140, 210, 230],
-        [210, 240, 255]
-    ],
-    'Cells': [
-        [5, 5, 8],
-        [30, 30, 40],
-        [70, 75, 85],
-        [120, 125, 135],
-        [180, 185, 195],
-        [235, 238, 245]
-    ],
-    'Foam': [
-        [8, 15, 25],
-        [40, 70, 100],
-        [80, 140, 170],
-        [140, 195, 220],
-        [200, 230, 245],
-        [240, 250, 255]
-    ],
-    'Moss': [
-        [8, 12, 3],
-        [20, 45, 12],
-        [45, 85, 30],
-        [75, 130, 55],
-        [120, 175, 85],
-        [170, 210, 130]
-    ]
-};
+export function presetsByModel(modelName) {
+    return presets.filter(p => p.model === modelName);
+}

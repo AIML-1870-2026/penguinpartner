@@ -1,56 +1,143 @@
-// renderer.js - Maps simulation state to canvas pixels via color themes
-window.TuringApp = window.TuringApp || {};
+// Renderer — WebGPU render pipeline with colormap texture
+import { renderShader } from './shaders.js';
+import { colormapGenerators } from './colormaps.js';
 
-TuringApp.Renderer = class {
-    constructor(canvas, simulation) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+const RENDER_PARAMS_SIZE = 32; // 8 × f32
+
+export class Renderer {
+    constructor(device, context, format, simulation) {
+        this.device = device;
+        this.context = context;
+        this.format = format;
         this.simulation = simulation;
-        this.imageData = this.ctx.createImageData(simulation.width, simulation.height);
-        // Pre-built 256-entry lookup table: [r0, g0, b0, r1, g1, b1, ...]
-        this.colorMap = new Uint8Array(256 * 3);
-        this.setTheme('Blood Cells');
+
+        this._createColormapTexture();
+        this._createRenderPipeline();
+        this.setColormap('Viridis');
+        this.setDisplayParams(1, 0, 1); // channel=V, range 0–1
     }
 
-    buildColorMap(colors) {
-        const map = this.colorMap;
-        const n = colors.length;
-        for (let i = 0; i < 256; i++) {
-            const t = i / 255;
-            const seg = t * (n - 1);
-            const idx = Math.min(Math.floor(seg), n - 2);
-            const frac = seg - idx;
-            const c1 = colors[idx];
-            const c2 = colors[idx + 1];
-            map[i * 3]     = Math.round(c1[0] + (c2[0] - c1[0]) * frac);
-            map[i * 3 + 1] = Math.round(c1[1] + (c2[1] - c1[1]) * frac);
-            map[i * 3 + 2] = Math.round(c1[2] + (c2[2] - c1[2]) * frac);
-        }
+    _createColormapTexture() {
+        const device = this.device;
+
+        this.colormapTexture = device.createTexture({
+            size: [256, 1],
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+
+        this.colormapSampler = device.createSampler({
+            magFilter: 'linear',
+            minFilter: 'linear',
+            addressModeU: 'clamp-to-edge',
+            addressModeV: 'clamp-to-edge',
+        });
     }
 
-    setTheme(themeName) {
-        const colors = TuringApp.COLOR_THEMES[themeName];
-        if (colors) {
-            this.buildColorMap(colors);
-        }
+    _createRenderPipeline() {
+        const device = this.device;
+
+        this.renderParamsBuffer = device.createBuffer({
+            size: RENDER_PARAMS_SIZE,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.renderBGL = device.createBindGroupLayout({
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } },
+                { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+                { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+                { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+            ],
+        });
+
+        const module = device.createShaderModule({ code: renderShader });
+        this.renderPipeline = device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [this.renderBGL] }),
+            vertex: { module, entryPoint: 'vertexMain' },
+            fragment: {
+                module,
+                entryPoint: 'fragmentMain',
+                targets: [{ format: this.format }],
+            },
+            primitive: { topology: 'triangle-list' },
+        });
+
+        this._createRenderBindGroups();
     }
 
-    render() {
-        const b = this.simulation.b;
-        const data = this.imageData.data;
-        const cmap = this.colorMap;
-        const size = this.simulation.size;
+    _createRenderBindGroups() {
+        const device = this.device;
+        const sim = this.simulation;
+        const texView = this.colormapTexture.createView();
 
-        for (let i = 0; i < size; i++) {
-            const ci = Math.min(255, Math.max(0, Math.floor(b[i] * 255)));
-            const ci3 = ci * 3;
-            const i4 = i * 4;
-            data[i4]     = cmap[ci3];
-            data[i4 + 1] = cmap[ci3 + 1];
-            data[i4 + 2] = cmap[ci3 + 2];
-            data[i4 + 3] = 255;
-        }
-
-        this.ctx.putImageData(this.imageData, 0, 0);
+        this.renderBindGroups = [
+            device.createBindGroup({
+                layout: this.renderBGL,
+                entries: [
+                    { binding: 0, resource: { buffer: sim.stateBuffers[0] } },
+                    { binding: 1, resource: texView },
+                    { binding: 2, resource: this.colormapSampler },
+                    { binding: 3, resource: { buffer: this.renderParamsBuffer } },
+                ],
+            }),
+            device.createBindGroup({
+                layout: this.renderBGL,
+                entries: [
+                    { binding: 0, resource: { buffer: sim.stateBuffers[1] } },
+                    { binding: 1, resource: texView },
+                    { binding: 2, resource: this.colormapSampler },
+                    { binding: 3, resource: { buffer: this.renderParamsBuffer } },
+                ],
+            }),
+        ];
     }
-};
+
+    setColormap(name) {
+        const gen = colormapGenerators[name];
+        if (!gen) return;
+        const data = gen();
+        this.device.queue.writeTexture(
+            { texture: this.colormapTexture },
+            data,
+            { bytesPerRow: 256 * 4 },
+            { width: 256, height: 1 },
+        );
+    }
+
+    setDisplayParams(channel, minVal, maxVal) {
+        const buf = new ArrayBuffer(RENDER_PARAMS_SIZE);
+        const u32 = new Uint32Array(buf);
+        const f32 = new Float32Array(buf);
+
+        u32[0] = this.simulation.width;
+        u32[1] = this.simulation.height;
+        u32[2] = channel;
+        u32[3] = 0; // padding
+        f32[4] = minVal;
+        f32[5] = maxVal;
+
+        this.device.queue.writeBuffer(this.renderParamsBuffer, 0, buf);
+    }
+
+    render(encoder) {
+        const textureView = this.context.getCurrentTexture().createView();
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+                view: textureView,
+                loadOp: 'clear',
+                storeOp: 'store',
+                clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            }],
+        });
+        pass.setPipeline(this.renderPipeline);
+        pass.setBindGroup(0, this.renderBindGroups[this.simulation.readBuffer]);
+        pass.draw(3);
+        pass.end();
+    }
+
+    // Rebuild bind groups after simulation resize
+    rebuildBindGroups() {
+        this._createRenderBindGroups();
+    }
+}

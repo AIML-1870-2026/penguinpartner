@@ -7,129 +7,107 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Turing Patterns Explorer</h1>
-            <div class="header-info">
-                <span id="fps-display">FPS: --</span>
+    <div id="app-container">
+        <!-- Header Bar -->
+        <header class="header-bar">
+            <h1 class="header-title">Turing Patterns Explorer</h1>
+            <div class="header-controls">
+                <select id="model-select" title="Model"></select>
+                <select id="preset-select" title="Preset"></select>
+                <div class="transport">
+                    <button id="play-btn" class="icon-btn" title="Play/Pause">&#9208;</button>
+                    <button id="step-btn" class="icon-btn" title="Step">&#9197;</button>
+                </div>
+                <label class="speed-label">Speed
+                    <input id="speed-slider" type="range" min="1" max="32" value="8">
+                    <span id="speed-value">8</span>
+                </label>
             </div>
         </header>
 
+        <!-- Main Area -->
         <div class="main-content">
-            <div class="canvas-container">
-                <canvas id="simulation-canvas"></canvas>
+            <div class="canvas-area">
+                <canvas id="sim-canvas"></canvas>
             </div>
 
-            <div class="control-panel">
-                <section class="control-section">
-                    <h2>Preset Patterns</h2>
-                    <div class="preset-grid">
-                        <div class="preset-item" data-preset="0">Mitosis</div>
-                        <div class="preset-item" data-preset="1">Coral</div>
-                        <div class="preset-item" data-preset="2">Spots</div>
-                        <div class="preset-item" data-preset="3">Stripes</div>
-                        <div class="preset-item" data-preset="4">Labyrinth</div>
-                        <div class="preset-item" data-preset="5">Waves</div>
-                        <div class="preset-item active" data-preset="6">Bubbles</div>
-                        <div class="preset-item" data-preset="7">Solitons</div>
-                        <div class="preset-item" data-preset="8">Chaos</div>
-                        <div class="preset-item" data-preset="9">Fingerprint</div>
+            <aside class="control-panel">
+                <!-- Parameters -->
+                <section class="ctrl-section">
+                    <h2>Parameters</h2>
+                    <div id="param-sliders"></div>
+                </section>
+
+                <!-- Brush -->
+                <section class="ctrl-section">
+                    <h2>Brush</h2>
+                    <div class="param-group">
+                        <label>Size <span id="brush-size-val">15px</span></label>
+                        <input id="brush-size" type="range" min="1" max="50" value="15">
+                    </div>
+                    <div class="param-group radio-row">
+                        <label>Chemical:</label>
+                        <label><input type="radio" name="brush-chem" value="0"> U</label>
+                        <label><input type="radio" name="brush-chem" value="1" checked> V</label>
+                        <label><input type="radio" name="brush-chem" value="2"> Both</label>
+                    </div>
+                    <div class="param-group">
+                        <label>Value <span id="brush-val-display">1.00</span></label>
+                        <input id="brush-value" type="range" min="0" max="1" step="0.05" value="1">
                     </div>
                 </section>
 
-                <section class="control-section">
-                    <h2>Pattern Breeding</h2>
-                    <div class="breeding-controls">
-                        <div class="control-group">
-                            <label for="parent-a-select">Parent A</label>
-                            <select id="parent-a-select"></select>
-                        </div>
-                        <div class="control-group">
-                            <label for="parent-b-select">Parent B</label>
-                            <select id="parent-b-select"></select>
-                        </div>
-                        <div class="control-group">
-                            <label for="blend-slider">Blend <span id="blend-value">50%</span></label>
-                            <input type="range" id="blend-slider" min="0" max="100" value="50">
-                        </div>
-                        <button id="breed-btn" class="control-btn">Generate Offspring</button>
+                <!-- Visualization -->
+                <section class="ctrl-section">
+                    <h2>Visualization</h2>
+                    <div class="param-group radio-row">
+                        <label>Display:</label>
+                        <label><input type="radio" name="display-ch" value="0"> U</label>
+                        <label><input type="radio" name="display-ch" value="1" checked> V</label>
+                        <label><input type="radio" name="display-ch" value="2"> UV</label>
+                    </div>
+                    <div class="param-group">
+                        <label>Colormap</label>
+                        <select id="colormap-select"></select>
                     </div>
                 </section>
 
-                <section class="control-section">
-                    <h2>Color Theme</h2>
-                    <div class="control-group">
-                        <select id="theme-select">
-                            <option value="Blood Cells" selected>Blood Cells</option>
-                            <option value="Poison">Poison</option>
-                            <option value="Bruise">Bruise</option>
-                            <option value="Infected">Infected</option>
-                            <option value="Coral Reef">Coral Reef</option>
-                            <option value="Cells">Cells</option>
-                            <option value="Foam">Foam</option>
-                            <option value="Moss">Moss</option>
+                <!-- Grid -->
+                <section class="ctrl-section">
+                    <h2>Grid</h2>
+                    <div class="param-group">
+                        <label>Resolution</label>
+                        <select id="res-select">
+                            <option value="256">256 &times; 256</option>
+                            <option value="512" selected>512 &times; 512</option>
+                            <option value="1024">1024 &times; 1024</option>
                         </select>
                     </div>
-                </section>
-
-                <section class="control-section">
-                    <h2>Manual Parameters</h2>
-                    <div class="control-group">
-                        <label for="f-slider">Feed Rate (f): <span id="f-value">0.0380</span></label>
-                        <input type="range" id="f-slider" min="0.010" max="0.100" step="0.001" value="0.0380">
-                    </div>
-                    <div class="control-group">
-                        <label for="k-slider">Kill Rate (k): <span id="k-value">0.0610</span></label>
-                        <input type="range" id="k-slider" min="0.045" max="0.070" step="0.001" value="0.0610">
+                    <div class="btn-row">
+                        <button id="reset-btn" class="ctrl-btn">Reset</button>
+                        <button id="clear-btn" class="ctrl-btn">Clear</button>
                     </div>
                 </section>
 
-                <section class="control-section">
-                    <h2>Simulation Controls</h2>
-                    <div class="button-group">
-                        <button id="play-pause-btn" class="control-btn">Pause</button>
-                        <button id="reset-btn" class="control-btn">Reset</button>
-                    </div>
-                </section>
-
-                <section class="control-section">
-                    <h2>Export</h2>
-                    <div class="export-controls">
-                        <div class="control-group">
-                            <label for="export-scale">Resolution</label>
-                            <select id="export-scale">
-                                <option value="1">1x (256x256)</option>
-                                <option value="2">2x (512x512)</option>
-                                <option value="4">4x (1024x1024)</option>
-                            </select>
-                        </div>
-                        <button id="export-btn" class="control-btn">Export PNG</button>
-                    </div>
-                </section>
-
-                <section class="control-section info-section">
-                    <h3>How to Use</h3>
-                    <p>Click or drag on the canvas to inject chemical B and create bleeding patterns.</p>
-                    <p><strong>Keyboard Shortcuts:</strong></p>
+                <!-- Info -->
+                <section class="ctrl-section info-section">
+                    <h3>Controls</h3>
                     <ul>
-                        <li>Space: Play/Pause</li>
-                        <li>R: Reset</li>
-                        <li>E: Export</li>
-                        <li>1-9: Load presets</li>
+                        <li><b>Left-drag</b> canvas to paint</li>
+                        <li><b>Right-drag</b> to erase</li>
+                        <li><b>Space</b> play/pause</li>
+                        <li><b>R</b> reset &middot; <b>&rarr;</b> step</li>
                     </ul>
                 </section>
-            </div>
+            </aside>
         </div>
+
+        <!-- Status Bar -->
+        <footer class="status-bar" id="status-bar">
+            512&times;512 | -- fps | 8 steps/frame | Frame 0
+        </footer>
     </div>
 
-    <!-- Load scripts in order -->
-    <script src="js/presets.js"></script>
-    <script src="js/simulation.js"></script>
-    <script src="js/renderer.js"></script>
-    <script src="js/breeding.js"></script>
-    <script src="js/interaction.js"></script>
-    <script src="js/controls.js"></script>
-    <script src="js/export.js"></script>
-    <script src="js/app.js"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
