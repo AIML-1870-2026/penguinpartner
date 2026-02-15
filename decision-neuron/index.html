@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Decision Neuron — Should I Go for a Walk?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-deep: #0b1810;
+  --bg-card: rgba(14,30,18,0.88);
+  --bg-card-inner: rgba(20,42,26,0.6);
+  --border: #2a5233;
+  --border-light: rgba(110,231,160,0.12);
+  --green: #6ee7a0;
+  --green-dim: #3a8c5c;
+  --orange: #fb923c;
+  --orange-dim: #c2702e;
+  --teal: #5eead4;
+  --gold: #fbbf24;
+  --sky: #7dd3fc;
+  --text: #e8f0ea;
+  --text-dim: #8aab94;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+}
+
+html { font-size: 14px; }
+
+body {
+  background: #0b1810;
+  color: var(--text);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Layered nature background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 30% 0%, rgba(30,80,50,0.35) 0%, transparent 50%),
+    radial-gradient(ellipse 100% 60% at 80% 100%, rgba(20,60,80,0.25) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 60% 30%, rgba(251,191,36,0.04) 0%, transparent 40%),
+    linear-gradient(175deg, #0d1f14 0%, #0f2518 25%, #122a1e 45%, #142e30 70%, #0d1f2d 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Firefly particles */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(251,191,36,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 60%, rgba(110,231,160,0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 45% 15%, rgba(251,191,36,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 45%, rgba(110,231,160,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 75%, rgba(251,191,36,0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 85%, rgba(110,231,160,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 15% 90%, rgba(251,191,36,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 10%, rgba(110,231,160,0.4) 0%, transparent 100%);
+  animation: fireflies 8s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes fireflies {
+  0% { opacity: 0.4; transform: translateY(0); }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.5; transform: translateY(-8px); }
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+}
+
+/* Header */
+.header { text-align: center; margin-bottom: 1.5rem; }
+.header h1 {
+  font-family: var(--font-serif);
+  font-size: 2.6rem;
+  margin-bottom: 0.15rem;
+  background: linear-gradient(135deg, var(--green) 0%, var(--teal) 40%, var(--sky) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 2px 8px rgba(110,231,160,0.15));
+}
+.header .subtitle {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+.header .walk-emoji {
+  font-size: 1.8rem;
+  display: block;
+  margin-bottom: 0.2rem;
+  filter: drop-shadow(0 0 6px rgba(251,191,36,0.3));
+}
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 3px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 1.25rem;
+  backdrop-filter: blur(10px);
+}
+.tab-btn {
+  flex: 1;
+  padding: 0.65rem 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  cursor: pointer;
+  border-radius: 9px;
+  transition: all 0.3s;
+}
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(45,90,53,0.6), rgba(30,70,60,0.4));
+  color: var(--green);
+  box-shadow: 0 0 16px rgba(110,231,160,0.12), inset 0 1px 0 rgba(110,231,160,0.1);
+}
+.tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.03); }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* Sliders */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: var(--bg-card-inner);
+  border: 1px solid var(--border-light);
+  transition: all 0.25s;
+}
+.slider-row:hover {
+  background: rgba(30,60,38,0.7);
+  border-color: rgba(110,231,160,0.2);
+  box-shadow: 0 0 12px rgba(110,231,160,0.06);
+}
+.slider-icon { font-size: 1.5rem; width: 2rem; text-align: center; flex-shrink: 0; }
+.slider-label {
+  width: 7rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.slider-track { flex: 1; position: relative; }
+.slider-track input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(90deg, rgba(42,82,51,0.6), rgba(110,231,160,0.2));
+  border-radius: 3px;
+  outline: none;
+}
+.slider-track input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px; height: 20px;
+  background: radial-gradient(circle at 40% 35%, #9cffc6, var(--green-dim));
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid rgba(110,231,160,0.4);
+  box-shadow: 0 0 10px rgba(110,231,160,0.3);
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.slider-track input[type=range]:active::-webkit-slider-thumb {
+  box-shadow: 0 0 20px rgba(110,231,160,0.6);
+  transform: scale(1.1);
+}
+.slider-val {
+  width: 3rem;
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.slider-annotation {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: -0.2rem;
+  margin-bottom: 0.4rem;
+}
+
+/* Neuron diagram container */
+.tryit-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+.tryit-sliders { flex: 1; min-width: 0; }
+.tryit-diagram { flex: 1; min-width: 280px; }
+@media (max-width: 899px) {
+  .tryit-layout { flex-direction: column; }
+  .tryit-diagram { width: 100%; }
+}
+
+/* Result display */
+.result-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid;
+  transition: all 0.4s;
+}
+.result-display.go {
+  background: linear-gradient(135deg, rgba(110,231,160,0.08), rgba(94,234,212,0.05));
+  border-color: rgba(110,231,160,0.25);
+  box-shadow: 0 0 20px rgba(110,231,160,0.08);
+}
+.result-display.stay {
+  background: linear-gradient(135deg, rgba(251,146,60,0.08), rgba(251,191,36,0.04));
+  border-color: rgba(251,146,60,0.25);
+  box-shadow: 0 0 20px rgba(251,146,60,0.08);
+}
+.result-label {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  letter-spacing: 0.02em;
+}
+.result-pct {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* Calc breakdown */
+.calc-breakdown {
+  background: var(--bg-card-inner);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+.go-text { color: var(--green); }
+.stay-text { color: var(--orange); }
+
+/* Decision boundary */
+.boundary-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.boundary-controls label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.boundary-controls select {
+  background: var(--bg-deep);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.boundary-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.boundary-canvas-wrap canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: block;
+}
+.boundary-note {
+  text-align: center;
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+/* Training */
+.training-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 899px) {
+  .training-grid { grid-template-columns: 1fr; }
+}
+
+.inner-card {
+  background: var(--bg-card-inner);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+.inner-card h3 {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+  color: var(--teal);
+}
+.factor-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  padding: 0.2rem 0;
+  color: var(--text-dim);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.factor-row:last-of-type { border-bottom: none; }
+.factor-row .val { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.badge-go { background: rgba(110,231,160,0.12); color: var(--green); border: 1px solid rgba(110,231,160,0.2); }
+.badge-stay { background: rgba(251,146,60,0.12); color: var(--orange); border: 1px solid rgba(251,146,60,0.2); }
+
+.prediction-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.stats-bar {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-card-inner);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+.stats-bar span strong { color: var(--green); }
+
+/* Weight display */
+.weight-table {
+  width: 100%;
+  font-size: 0.75rem;
+  border-collapse: collapse;
+}
+.weight-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 400;
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.weight-table td {
+  padding: 0.25rem 0.4rem;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
+}
+.weight-table .grad { color: var(--text-dim); }
+
+/* Buttons */
+.btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(14,30,18,0.8);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.btn:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: rgba(94,234,212,0.06);
+}
+.btn-primary {
+  background: linear-gradient(135deg, rgba(110,231,160,0.15), rgba(94,234,212,0.1));
+  border-color: var(--green);
+  color: var(--green);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, rgba(110,231,160,0.25), rgba(94,234,212,0.15));
+  box-shadow: 0 0 16px rgba(110,231,160,0.12);
+}
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+/* LR slider */
+.lr-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.lr-row input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+}
+.lr-row input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  background: var(--teal);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(94,234,212,0.3);
+}
+
+/* Sparkline */
+.sparkline-wrap { margin-top: 1rem; }
+.sparkline-wrap h4 {
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+}
+
+/* Tooltip */
+.tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  cursor: help;
+  position: relative;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  transition: border-color 0.2s;
+}
+.tooltip-icon:hover { border-color: var(--teal); color: var(--teal); }
+.tooltip-icon:hover .tooltip-text {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+.tooltip-text {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(10,20,14,0.96);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  width: 230px;
+  line-height: 1.5;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* Animations */
+.pulse-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 0.4rem;
+  animation: pulse 0.8s infinite alternate;
+}
+@keyframes pulse { from { opacity: 0.3; transform: scale(0.9); } to { opacity: 1; transform: scale(1.1); } }
+
+.num-transition { transition: color 0.3s ease; }
+
+/* Presets */
+.presets-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.preset-btn {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-card-inner);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.preset-btn:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+  background: rgba(94,234,212,0.06);
+  box-shadow: 0 0 10px rgba(94,234,212,0.08);
+}
+
+/* Sensitivity bars */
+.sensitivity-panel {
+  margin-top: 0.75rem;
+  background: var(--bg-card-inner);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+.sensitivity-panel h4 {
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+  color: var(--teal);
+  margin-bottom: 0.5rem;
+}
+.sens-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+}
+.sens-label {
+  width: 5.5rem;
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+.sens-bar-track {
+  flex: 1;
+  height: 14px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.sens-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease, background 0.3s;
+}
+.sens-val {
+  width: 3.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+/* Neuron data flow animation */
+@keyframes dataflow {
+  0% { stroke-dashoffset: 20; }
+  100% { stroke-dashoffset: 0; }
+}
+.conn-line-animated {
+  stroke-dasharray: 6 4;
+  animation: dataflow 1s linear infinite;
+}
+
+/* Neuron pulse on decision change */
+@keyframes neuron-pulse {
+  0% { r: 36; }
+  50% { r: 39; }
+  100% { r: 36; }
+}
+
+/* Extended math */
+.math-step {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 0.72rem;
+}
+.math-step:last-of-type { border-bottom: none; }
+.math-step .term-name { color: var(--text-dim); }
+.math-step .term-calc { color: var(--text); font-variant-numeric: tabular-nums; }
+.math-step .term-result { font-variant-numeric: tabular-nums; min-width: 4rem; text-align: right; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── Constants ────────────────────────────────────────────
+const FACTORS = [
+  { name: 'Wind',       icon: '\u{1F4A8}', unit: 'mph', sign: -1 },
+  { name: 'Sunshine',   icon: '\u2600\uFE0F',  unit: '',    sign: +1 },
+  { name: 'Stress',     icon: '\u{1F624}', unit: '',    sign: +1 },
+  { name: 'Time of Day',icon: '\u{1F550}', unit: '',    sign: +1 },
+  { name: 'Friends',    icon: '\u{1F465}', unit: '',    sign: +1 },
+];
+
+// Slider config: min, max, step for each factor
+const SLIDER_CFG = [
+  { min: 0, max: 40, step: 1 },     // Wind: 0-40 mph
+  { min: 0, max: 1,  step: 0.01 },  // Sunshine
+  { min: 1, max: 10, step: 1 },     // Stress: 1-10 scale
+  { min: 0, max: 24, step: 0.5 },   // Time: 0-24 hours
+  { min: 1, max: 10, step: 1 },     // Friends: 1-10 scale
+];
+
+// Influence ranking: Wind > Sun > Friends > Stress > Time
+const TARGET_WEIGHTS = [-5.0, +4.0, +2.5, +1.0, +3.0];
+const TARGET_BIAS = 2.0;
+const NUM_TRAINING = 60;
+
+// ─── Helpers ──────────────────────────────────────────────
+function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+// Time preprocessing: daytime = high (encourages walk), night = low.
+// Noon = 1.0, midnight = 0.0, smooth cosine curve.
+function preprocessTime(hour) {
+  return (Math.cos((hour - 12) / 12 * Math.PI) + 1) / 2;
+}
+
+// Wind preprocessing: mph to 0-1
+function preprocessWind(mph) { return mph / 40; }
+
+// Convert raw slider values to neuron-ready 0-1 inputs
+function preprocessScale(val) { return (val - 1) / 9; } // 1-10 → 0-1
+
+function processInputs(raw) {
+  return raw.map((v, i) => {
+    if (i === 0) return preprocessWind(v);
+    if (i === 2) return preprocessScale(v); // Stress 1-10 → 0-1
+    if (i === 3) return preprocessTime(v);
+    if (i === 4) return preprocessScale(v); // Friends 1-10 → 0-1
+    return v;
+  });
+}
+
+function computeNeuron(inputs, weights, bias) {
+  let z = bias;
+  for (let i = 0; i < 5; i++) z += weights[i] * inputs[i];
+  return { z, output: sigmoid(z) };
+}
+
+function randomWeights() {
+  return Array.from({ length: 5 }, () => (Math.random() - 0.5) * 0.6);
+}
+
+function generateTrainingData() {
+  const data = [];
+  for (let i = 0; i < NUM_TRAINING; i++) {
+    // Generate raw values in natural units
+    const raw = [
+      Math.random() * 40,                        // Wind: 0-40 mph
+      Math.random(),                              // Sunshine: 0-1
+      Math.floor(Math.random() * 10) + 1,        // Stress: 1-10
+      Math.random() * 24,                         // Time: 0-24 hours
+      Math.floor(Math.random() * 10) + 1,        // Friends: 1-10
+    ];
+    const inputs = processInputs(raw);
+    let z = TARGET_BIAS;
+    for (let j = 0; j < 5; j++) z += TARGET_WEIGHTS[j] * inputs[j];
+    data.push({ rawInputs: raw, inputs, label: z > 0 ? 1 : 0 });
+  }
+  return data;
+}
+
+function fmt(n, d = 2) {
+  return n >= 0 ? '+' + n.toFixed(d) : n.toFixed(d);
+}
+
+function formatHour(h) {
+  const hr = Math.floor(h) % 24;
+  const min = Math.round((h - Math.floor(h)) * 60);
+  const ampm = hr < 12 ? 'AM' : 'PM';
+  const display = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+  return min === 0 ? `${display} ${ampm}` : `${display}:${min.toString().padStart(2,'0')} ${ampm}`;
+}
+
+function formatSliderVal(i, v) {
+  if (i === 0) return `${Math.round(v)} mph`;
+  if (i === 2) return `${Math.round(v)} / 10`;
+  if (i === 3) return formatHour(v);
+  if (i === 4) return `${Math.round(v)}`;
+  return v.toFixed(2);
+}
+
+// ─── Presets ─────────────────────────────────────────────
+const PRESETS = [
+  { name: '\u2600\uFE0F Perfect Day',     values: [3, 0.95, 2, 12, 7] },
+  { name: '\u{1F329}\uFE0F Stormy Night', values: [35, 0.05, 8, 1, 1] },
+  { name: '\u{1F305} Morning Jog',        values: [8, 0.6, 6, 7, 3] },
+  { name: '\u{1F46B} Friend Hangout',     values: [10, 0.7, 3, 15, 10] },
+  { name: '\u{1F624} Stress Relief',      values: [15, 0.4, 10, 17, 2] },
+  { name: '\u{1F4A8} Windy Noon',         values: [30, 0.8, 4, 12, 5] },
+];
+
+// ─── Tooltip ────────────────────────────────────────────
+function Tip({ text }) {
+  return (
+    <span className="tooltip-icon">?<span className="tooltip-text">{text}</span></span>
+  );
+}
+
+// ─── Neuron SVG ─────────────────────────────────────────
+function NeuronDiagram({ inputs, weights, bias, output, decision }) {
+  const W = 400, H = 310;
+  const inX = 55, nX = 220, outX = 350;
+  const nY = H / 2;
+  const yPos = FACTORS.map((_, i) => 38 + i * (H - 76) / 4);
+  const maxW = Math.max(...weights.map(Math.abs), 0.01);
+  const col = decision ? 'var(--green)' : 'var(--orange)';
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+      <defs>
+        <filter id="glow-g"><feGaussianBlur stdDeviation="3" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="glow-sm"><feGaussianBlur stdDeviation="1.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="conn-pos" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--green)" stopOpacity="0.5"/>
+          <stop offset="100%" stopColor="var(--green)" stopOpacity="1"/>
+        </linearGradient>
+        <linearGradient id="conn-neg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--orange)" stopOpacity="0.5"/>
+          <stop offset="100%" stopColor="var(--orange)" stopOpacity="1"/>
+        </linearGradient>
+      </defs>
+
+      {/* Connection lines with data flow animation */}
+      {weights.map((w, i) => {
+        const absW = Math.abs(w);
+        const t = 1.5 + (absW / maxW) * 6;
+        const op = Math.min(1, 0.35 + absW * 0.5);
+        const contribution = Math.abs(w * inputs[i]);
+        const speed = Math.max(0.3, 1.5 - contribution * 0.3);
+        return (
+          <g key={i}>
+            <line x1={inX + 20} y1={yPos[i]} x2={nX - 36} y2={nY}
+              stroke={w >= 0 ? 'url(#conn-pos)' : 'url(#conn-neg)'}
+              strokeWidth={t} opacity={op * 0.4} filter="url(#glow-sm)" />
+            <line x1={inX + 20} y1={yPos[i]} x2={nX - 36} y2={nY}
+              stroke={w >= 0 ? '#6ee7a0' : '#fb923c'}
+              strokeWidth={Math.max(1, t * 0.5)} opacity={op}
+              className="conn-line-animated"
+              style={{ animationDuration: speed + 's' }} />
+          </g>
+        );
+      })}
+
+      {/* Weight labels */}
+      {weights.map((w, i) => {
+        const mx = (inX + 20 + nX - 36) / 2 + (i % 2 === 0 ? -6 : 6);
+        const my = (yPos[i] + nY) / 2 - 5;
+        return (
+          <text key={'w'+i} x={mx} y={my} fontSize="7"
+            fill="var(--gold)" fontFamily="var(--font-mono)" opacity="0.75" textAnchor="middle">
+            {fmt(w)}
+          </text>
+        );
+      })}
+
+      {/* Input nodes */}
+      {FACTORS.map((f, i) => (
+        <g key={i}>
+          <circle cx={inX} cy={yPos[i]} r={17}
+            fill="var(--bg-deep)" stroke="var(--border)" strokeWidth={1.5} />
+          <text x={inX} y={yPos[i] + 1} textAnchor="middle"
+            fontSize="14" dominantBaseline="middle">{f.icon}</text>
+          <text x={inX + 24} y={yPos[i] - 9} fontSize="7.5" fontWeight="500"
+            fill="var(--text)">{f.name}</text>
+          <text x={inX + 24} y={yPos[i] + 5} fontSize="8.5"
+            fill="var(--gold)" fontFamily="var(--font-mono)">{inputs[i].toFixed(2)}</text>
+        </g>
+      ))}
+
+      {/* Central neuron with pulse */}
+      <circle cx={nX} cy={nY} r={36}
+        fill="var(--bg-deep)" stroke={col} strokeWidth={2.5}
+        filter="url(#glow-g)"
+        style={{ animation: 'neuron-pulse 2s ease-in-out infinite' }} />
+      <text x={nX} y={nY - 6} textAnchor="middle"
+        fontSize="14" fill="var(--text)" fontFamily="var(--font-mono)">{'\u03C3(\u03A3)'}</text>
+      <text x={nX} y={nY + 12} textAnchor="middle"
+        fontSize="8" fill="var(--text-dim)">b = {bias.toFixed(2)}</text>
+
+      {/* Output arrow */}
+      <line x1={nX + 36} y1={nY} x2={outX - 32} y2={nY}
+        stroke={col} strokeWidth={2.5} filter="url(#glow-sm)" />
+      <polygon points={`${outX - 32},${nY - 6} ${outX - 20},${nY} ${outX - 32},${nY + 6}`}
+        fill={col} />
+
+      {/* Output box */}
+      <rect x={outX - 14} y={nY - 28} width={72} height={56} rx={12}
+        fill="var(--bg-deep)" stroke={col} strokeWidth={2}
+        filter="url(#glow-g)" />
+      <text x={outX + 22} y={nY - 5} textAnchor="middle"
+        fontSize="15" fill={col} fontWeight="500" fontFamily="var(--font-serif)">
+        {decision ? 'GO!' : 'STAY'}
+      </text>
+      <text x={outX + 22} y={nY + 14} textAnchor="middle"
+        fontSize="10" fill="var(--text-dim)" fontFamily="var(--font-mono)">
+        {(output * 100).toFixed(1)}%
+      </text>
+    </svg>
+  );
+}
+
+// ─── Section 1: Try It ──────────────────────────────────
+function TryItSection({ inputs, setInputs, weights, bias }) {
+  const processed = processInputs(inputs);
+  const { z, output } = computeNeuron(processed, weights, bias);
+  const decision = output >= 0.5;
+
+  // Sensitivity: contribution of each factor
+  const contributions = weights.map((w, i) => ({ idx: i, value: w * processed[i] }));
+  const maxContrib = Math.max(...contributions.map(c => Math.abs(c.value)), 0.01);
+
+  return (
+    <div>
+      {/* Scenario Presets */}
+      <div className="presets-row">
+        {PRESETS.map((p, i) => (
+          <button key={i} className="preset-btn"
+            onClick={() => setInputs([...p.values])}>
+            {p.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="tryit-layout">
+        <div className="tryit-sliders">
+          {FACTORS.map((f, i) => {
+            const cfg = SLIDER_CFG[i];
+            return (
+            <div key={i}>
+              <div className="slider-row">
+                <span className="slider-icon">{f.icon}</span>
+                <span className="slider-label">{f.name}</span>
+                <div className="slider-track">
+                  <input type="range" min={cfg.min} max={cfg.max} step={cfg.step}
+                    value={inputs[i]}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      setInputs(prev => { const n = [...prev]; n[i] = val; return n; });
+                    }} />
+                </div>
+                <span className="slider-val">{formatSliderVal(i, inputs[i])}</span>
+              </div>
+              {i === 0 && (
+                <div className="slider-annotation">
+                  neuron sees: {processed[0].toFixed(2)}
+                </div>
+              )}
+              {i === 2 && (
+                <div className="slider-annotation">
+                  neuron sees: {processed[2].toFixed(2)}
+                </div>
+              )}
+              {i === 3 && (
+                <div className="slider-annotation">
+                  {formatHour(inputs[3])} &middot; walk score: {processed[3].toFixed(2)}
+                  <Tip text="Daytime encourages walking, nighttime discourages it. The neuron sees a score from 0 (midnight) to 1 (noon), following a smooth cosine curve." />
+                </div>
+              )}
+              {i === 4 && (
+                <div className="slider-annotation">
+                  neuron sees: {processed[4].toFixed(2)}
+                </div>
+              )}
+            </div>
+            );
+          })}
+        </div>
+        <div className="tryit-diagram">
+          <NeuronDiagram inputs={processed} weights={weights} bias={bias}
+            output={output} decision={decision} />
+          <Tip text="A neuron computes a weighted sum of inputs, adds a bias, then passes the result through sigmoid to produce a probability." />
+        </div>
+      </div>
+
+      <div className={`result-display ${decision ? 'go' : 'stay'}`}>
+        <span className="result-label" style={{ color: decision ? 'var(--green)' : 'var(--orange)' }}>
+          {decision ? '\u{1F6B6} Go for a walk!' : '\u{1F3E0} Stay in.'}
+        </span>
+        <span className="result-pct">{(output * 100).toFixed(1)}% confidence</span>
+      </div>
+
+      <div style={{
+        textAlign: 'center', marginTop: '0.6rem', padding: '0.5rem 0.8rem',
+        background: 'rgba(110,231,160,0.05)', border: '1px solid rgba(110,231,160,0.12)',
+        borderRadius: '8px', fontSize: '0.75rem', color: 'var(--text-dim)'
+      }}>
+        <span style={{ color: 'var(--green)', fontWeight: 500 }}>My bias: {bias >= 0 ? '+' : ''}{bias.toFixed(2)}</span>
+        {' \u2014 '}I'll probably go on a walk anyway {'\u{1F60E}'}
+        <Tip text="The bias is like my default mood. A positive bias means I'm already leaning toward 'Go' before even looking at the weather. Even bad factors have to fight my love of walking." />
+      </div>
+
+      {/* Extended Step-by-Step Math */}
+      <div className="calc-breakdown">
+        <div style={{ fontWeight: 500, color: 'var(--teal)', marginBottom: '0.4rem', fontSize: '0.78rem' }}>
+          Step-by-Step Calculation
+        </div>
+        {FACTORS.map((f, i) => {
+          const term = weights[i] * processed[i];
+          return (
+            <div className="math-step" key={i}>
+              <span className="term-name">{f.icon} {f.name}</span>
+              <span className="term-calc">{fmt(weights[i])} {'\u00D7'} {processed[i].toFixed(2)}</span>
+              <span className="term-result" style={{ color: term >= 0 ? 'var(--green)' : 'var(--orange)' }}>
+                = {fmt(term, 3)}
+              </span>
+            </div>
+          );
+        })}
+        <div className="math-step" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.3rem', marginTop: '0.15rem' }}>
+          <span className="term-name">Bias</span>
+          <span className="term-calc"></span>
+          <span className="term-result" style={{ color: bias >= 0 ? 'var(--green)' : 'var(--orange)' }}>= {fmt(bias, 3)}</span>
+        </div>
+        <div style={{ marginTop: '0.5rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '0.78rem' }}>
+          <span style={{ color: 'var(--text-dim)' }}>z = </span>
+          <span style={{ color: 'var(--gold)' }}>{z.toFixed(3)}</span>
+          <span style={{ color: 'var(--text-dim)' }}> {'\u2192'} {'\u03C3'}(z) = </span>
+          <strong className={decision ? 'go-text' : 'stay-text'}>{(output * 100).toFixed(1)}%</strong>
+          <span style={{ color: 'var(--text-dim)' }}> {'\u2192'} </span>
+          <strong className={decision ? 'go-text' : 'stay-text'}>{decision ? 'Go!' : 'Stay'}</strong>
+        </div>
+      </div>
+
+      {/* Sensitivity Analysis */}
+      <div className="sensitivity-panel">
+        <h4>Sensitivity Analysis <Tip text="Shows how much each factor is currently pushing the decision toward Go (right/green) or Stay (left/orange). Longer bars = stronger influence on this specific scenario." /></h4>
+        {contributions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).map(c => {
+          const pct = (Math.abs(c.value) / maxContrib) * 100;
+          const isPos = c.value >= 0;
+          return (
+            <div className="sens-row" key={c.idx}>
+              <span className="sens-label">{FACTORS[c.idx].icon} {FACTORS[c.idx].name}</span>
+              <div className="sens-bar-track">
+                <div className="sens-bar-fill" style={{
+                  width: pct + '%',
+                  background: isPos
+                    ? 'linear-gradient(90deg, rgba(110,231,160,0.3), rgba(110,231,160,0.7))'
+                    : 'linear-gradient(90deg, rgba(251,146,60,0.3), rgba(251,146,60,0.7))',
+                  boxShadow: isPos
+                    ? '0 0 8px rgba(110,231,160,0.2)'
+                    : '0 0 8px rgba(251,146,60,0.2)',
+                }} />
+              </div>
+              <span className="sens-val" style={{ color: isPos ? 'var(--green)' : 'var(--orange)' }}>
+                {fmt(c.value, 2)}
+              </span>
+            </div>
+          );
+        })}
+        <div className="sens-row" style={{ marginTop: '0.2rem', opacity: 0.6 }}>
+          <span className="sens-label" style={{ fontStyle: 'italic' }}>Bias</span>
+          <div className="sens-bar-track">
+            <div className="sens-bar-fill" style={{
+              width: (Math.abs(bias) / maxContrib) * 100 + '%',
+              background: bias >= 0
+                ? 'linear-gradient(90deg, rgba(110,231,160,0.2), rgba(110,231,160,0.5))'
+                : 'linear-gradient(90deg, rgba(251,146,60,0.2), rgba(251,146,60,0.5))',
+            }} />
+          </div>
+          <span className="sens-val" style={{ color: bias >= 0 ? 'var(--green)' : 'var(--orange)' }}>
+            {fmt(bias, 2)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Section 2: Decision Boundary ───────────────────────
+function BoundarySection({ weights, bias, inputs, trainingData }) {
+  const canvasRef = useRef(null);
+  const [xAxis, setXAxis] = useState(0);
+  const [yAxis, setYAxis] = useState(4); // Default Wind vs Friends
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const cssSize = canvas.clientWidth;
+    canvas.width = cssSize * dpr;
+    canvas.height = cssSize * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const pad = 42;
+    const plotSize = cssSize - pad * 2;
+    const step = 3;
+
+    // Processed base inputs (for held factors)
+    const baseProcessed = processInputs(inputs);
+
+    // Heatmap
+    for (let px = 0; px < plotSize; px += step) {
+      for (let py = 0; py < plotSize; py += step) {
+        const xVal = px / plotSize;
+        const yVal = 1 - py / plotSize;
+        const inp = [...baseProcessed];
+        // Map pixel position to raw value then process
+        const rawX = xVal * (SLIDER_CFG[xAxis].max - SLIDER_CFG[xAxis].min) + SLIDER_CFG[xAxis].min;
+        const rawY = yVal * (SLIDER_CFG[yAxis].max - SLIDER_CFG[yAxis].min) + SLIDER_CFG[yAxis].min;
+        inp[xAxis] = xAxis === 0 ? preprocessWind(rawX) : xAxis === 3 ? preprocessTime(rawX) : xVal;
+        inp[yAxis] = yAxis === 0 ? preprocessWind(rawY) : yAxis === 3 ? preprocessTime(rawY) : yVal;
+        const { output } = computeNeuron(inp, weights, bias);
+        const alpha = Math.abs(output - 0.5) * 2 * 0.55 + 0.1;
+        ctx.fillStyle = output >= 0.5
+          ? `rgba(110,231,160,${alpha})`
+          : `rgba(251,146,60,${alpha})`;
+        ctx.fillRect(pad + px, pad + py, step, step);
+      }
+    }
+
+    // Decision boundary
+    const otherSum = weights.reduce((s, w, i) => {
+      if (i === xAxis || i === yAxis) return s;
+      return s + w * baseProcessed[i];
+    }, bias);
+
+    const wx = weights[xAxis];
+    const wy = weights[yAxis];
+
+    // Draw boundary by scanning: for each x pixel, find the y pixel where z crosses 0
+    ctx.save();
+    ctx.setLineDash([8, 5]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+
+    // Scan approach: for each column, binary search for boundary row
+    for (let px = 0; px <= plotSize; px += 2) {
+      const xFrac = px / plotSize;
+      const rawX = xFrac * SLIDER_CFG[xAxis].max;
+      const procX = xAxis === 0 ? preprocessWind(rawX) : xAxis === 3 ? preprocessTime(rawX) : xFrac;
+
+      // Solve: wx*procX + wy*procY + otherSum = 0 => procY = -(wx*procX + otherSum) / wy
+      if (Math.abs(wy) > 0.001) {
+        const procY = -(wx * procX + otherSum) / wy;
+        // Convert procY back to fraction (0-1) on the axis
+        // For simple axes (not wind/time), procY = yFrac
+        // For wind/time, the mapping is non-linear, so approximate by scanning
+        let yFrac;
+        if (yAxis === 0) { yFrac = procY * 40 / SLIDER_CFG[0].max; }
+        else if (yAxis === 3) {
+          // Non-linear: scan for closest match
+          yFrac = -1;
+          for (let t = 0; t <= 1; t += 0.01) {
+            const raw = t * 24;
+            if (Math.abs(preprocessTime(raw) - procY) < 0.02) { yFrac = t; break; }
+          }
+        }
+        else { yFrac = procY; }
+
+        if (yFrac >= 0 && yFrac <= 1) {
+          const plotY = pad + (1 - yFrac) * plotSize;
+          if (!started) { ctx.moveTo(pad + px, plotY); started = true; }
+          else ctx.lineTo(pad + px, plotY);
+        }
+      } else if (Math.abs(wx) > 0.001 && px === 0) {
+        // Vertical line: procX = -otherSum / wx
+        const targetProcX = -otherSum / wx;
+        let xFracLine;
+        if (xAxis === 0) { xFracLine = targetProcX * 40 / SLIDER_CFG[0].max; }
+        else if (xAxis === 3) { xFracLine = -1; }
+        else { xFracLine = targetProcX; }
+        if (xFracLine >= 0 && xFracLine <= 1) {
+          const plotX2 = pad + xFracLine * plotSize;
+          ctx.moveTo(plotX2, pad);
+          ctx.lineTo(plotX2, pad + plotSize);
+          started = true;
+        }
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    if (!started) {
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.font = '11px "DM Mono"';
+      ctx.textAlign = 'center';
+      const { output: o } = computeNeuron(inputs.map((v, i) => i === 3 ? preprocessTime(v) : v), weights, bias);
+      ctx.fillText(`All classified as ${o >= 0.5 ? 'Go' : 'Stay'}`, cssSize / 2, cssSize / 2);
+    }
+
+    // Axes frame
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeRect(pad, pad, plotSize, plotSize);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    [0.25, 0.5, 0.75].forEach(v => {
+      const px = pad + v * plotSize;
+      ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, pad + plotSize); ctx.stroke();
+      const py = pad + (1 - v) * plotSize;
+      ctx.beginPath(); ctx.moveTo(pad, py); ctx.lineTo(pad + plotSize, py); ctx.stroke();
+    });
+
+    // Tick labels - show real units
+    const fmtTick = (axis, frac) => {
+      const raw = frac * (SLIDER_CFG[axis].max - SLIDER_CFG[axis].min) + SLIDER_CFG[axis].min;
+      if (axis === 0) return Math.round(raw) + '';
+      if (axis === 3) return Math.round(raw) + 'h';
+      return frac.toFixed(1);
+    };
+    ctx.font = '8px "DM Mono"';
+    ctx.textAlign = 'center';
+    [0, 0.25, 0.5, 0.75, 1].forEach(v => {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillText(fmtTick(xAxis, v), pad + v * plotSize, pad + plotSize + 15);
+      ctx.textAlign = 'right';
+      ctx.fillText(fmtTick(yAxis, v), pad - 5, pad + (1 - v) * plotSize + 3);
+      ctx.textAlign = 'center';
+    });
+
+    // Axis labels
+    ctx.fillStyle = '#5eead4';
+    ctx.font = '11px "DM Mono"';
+    ctx.fillText(`${FACTORS[xAxis].icon} ${FACTORS[xAxis].name}`, cssSize / 2, pad + plotSize + 32);
+    ctx.save();
+    ctx.translate(13, cssSize / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(`${FACTORS[yAxis].icon} ${FACTORS[yAxis].name}`, 0, 0);
+    ctx.restore();
+
+    // Training data dots - normalize rawInputs to 0-1 for plot position
+    trainingData.forEach(ex => {
+      const xV = ex.rawInputs[xAxis] / SLIDER_CFG[xAxis].max;
+      const yV = ex.rawInputs[yAxis] / SLIDER_CFG[yAxis].max;
+      const dpx = pad + xV * plotSize;
+      const dpy = pad + (1 - yV) * plotSize;
+      ctx.beginPath();
+      ctx.arc(dpx, dpy, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = ex.label === 1 ? 'rgba(110,231,160,0.75)' : 'rgba(251,146,60,0.75)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+  }, [weights, bias, inputs, xAxis, yAxis, trainingData]);
+
+  useEffect(() => {
+    const t = setTimeout(draw, 50);
+    return () => clearTimeout(t);
+  }, [draw]);
+
+  return (
+    <div>
+      <div className="boundary-controls">
+        <label>X-axis:
+          <select value={xAxis} onChange={e => setXAxis(+e.target.value)}>
+            {FACTORS.map((f, i) => <option key={i} value={i}>{f.icon} {f.name}</option>)}
+          </select>
+        </label>
+        <label>Y-axis:
+          <select value={yAxis} onChange={e => setYAxis(+e.target.value)}>
+            {FACTORS.map((f, i) => <option key={i} value={i}>{f.icon} {f.name}</option>)}
+          </select>
+        </label>
+        <Tip text="The decision boundary is a straight line where the neuron is exactly 50% sure. One side = 'Go,' the other = 'Stay.'" />
+      </div>
+      <div className="boundary-canvas-wrap">
+        <canvas ref={canvasRef} style={{ width: '100%', aspectRatio: '1' }} />
+      </div>
+      <p className="boundary-note">Other factors held at slider values. Dashed line = 50% boundary.</p>
+    </div>
+  );
+}
+
+// ─── Section 3: Training ────────────────────────────────
+function TrainingSection({ weights, setWeights, bias, setBias, trainingData, setTrainingData }) {
+  const [index, setIndex] = useState(0);
+  const [epoch, setEpoch] = useState(1);
+  const [lr, setLr] = useState(0.5);
+  const [history, setHistory] = useState([]);
+  const [autoTrain, setAutoTrain] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [epochTotal, setEpochTotal] = useState(0);
+  const [flash, setFlash] = useState(false);
+  const autoRef = useRef(null);
+
+  const ex = trainingData[index];
+  const { z, output } = computeNeuron(ex.inputs, weights, bias);
+  const predicted = output >= 0.5 ? 1 : 0;
+  const correct = predicted === ex.label;
+  const loss = -(ex.label * Math.log(output + 1e-10) + (1 - ex.label) * Math.log(1 - output + 1e-10));
+  const error = output - ex.label;
+  const gradients = ex.inputs.map(x => error * x);
+  const gradBias = error;
+
+  const trainStep = useCallback(() => {
+    setFlash(true);
+    setTimeout(() => setFlash(false), 300);
+    setWeights(prev => prev.map((w, i) => w - lr * gradients[i]));
+    setBias(prev => prev - lr * gradBias);
+    setHistory(prev => [...prev.slice(-99), loss]);
+    setCorrectCount(prev => prev + (predicted === ex.label ? 1 : 0));
+    setEpochTotal(prev => prev + 1);
+    setIndex(prev => {
+      const next = prev + 1;
+      if (next >= trainingData.length) {
+        setEpoch(e => e + 1);
+        setCorrectCount(0);
+        setEpochTotal(0);
+        return 0;
+      }
+      return next;
+    });
+  }, [weights, bias, lr, index, trainingData, ex, output, loss, gradients, gradBias, predicted]);
+
+  useEffect(() => {
+    if (autoTrain) {
+      autoRef.current = setInterval(trainStep, 400);
+    }
+    return () => { if (autoRef.current) clearInterval(autoRef.current); };
+  }, [autoTrain, trainStep]);
+
+  const resetWeights = () => {
+    setWeights(randomWeights());
+    setBias(0);
+    setIndex(0);
+    setEpoch(1);
+    setHistory([]);
+    setCorrectCount(0);
+    setEpochTotal(0);
+    setAutoTrain(false);
+  };
+
+  const shuffleData = () => {
+    setTrainingData(prev => {
+      const arr = [...prev];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    });
+    setIndex(0);
+    setEpoch(1);
+    setCorrectCount(0);
+    setEpochTotal(0);
+  };
+
+  const accuracy = epochTotal > 0 ? ((correctCount / epochTotal) * 100).toFixed(1) : '--';
+
+  // Sparkline
+  const sparkW = 300, sparkH = 55;
+  const maxLoss = Math.max(...history, 0.5);
+  const sparkPath = history.length > 1
+    ? history.map((l, i) => {
+        const x = (i / (history.length - 1)) * sparkW;
+        const y = sparkH - (l / maxLoss) * sparkH;
+        return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+      }).join(' ')
+    : '';
+  const sparkFill = history.length > 1
+    ? sparkPath + ` L${sparkW},${sparkH} L0,${sparkH} Z`
+    : '';
+
+  return (
+    <div>
+      <div className="stats-bar">
+        <span>Example <strong>{index + 1}/{trainingData.length}</strong></span>
+        <span>Epoch <strong>{epoch}</strong></span>
+        <span>Accuracy <strong>{accuracy}%</strong></span>
+        <span>Steps <strong>{history.length}</strong></span>
+      </div>
+
+      <div className="training-grid">
+        <div>
+          <div className="inner-card">
+            <h3>Current Example</h3>
+            {FACTORS.map((f, i) => (
+              <div className="factor-row" key={i}>
+                <span>{f.icon} {f.name}</span>
+                <span className="val">
+                  {i === 0 ? Math.round(ex.rawInputs[0]) + ' mph' :
+                   i === 2 ? Math.round(ex.rawInputs[2]) + ' / 10' :
+                   i === 3 ? formatHour(ex.rawInputs[3]) :
+                   i === 4 ? Math.round(ex.rawInputs[4]) + '' :
+                   ex.inputs[i].toFixed(3)}
+                  <span style={{ opacity: 0.5, fontSize: '0.65rem' }}> ({ex.inputs[i].toFixed(2)})</span>
+                </span>
+              </div>
+            ))}
+            <div style={{ marginTop: '0.6rem' }}>
+              Label: <span className={`badge ${ex.label === 1 ? 'badge-go' : 'badge-stay'}`}>
+                {ex.label === 1 ? 'Go' : 'Stay'}
+              </span>
+            </div>
+          </div>
+          <div className="inner-card" style={{ marginTop: '0.75rem' }}>
+            <h3>Prediction</h3>
+            <div className="prediction-row">
+              <span className={`badge ${predicted === 1 ? 'badge-go' : 'badge-stay'}`}>
+                {predicted === 1 ? 'Go' : 'Stay'}
+              </span>
+              <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
+                {(output * 100).toFixed(1)}%
+              </span>
+              <span style={{ fontSize: '1rem' }}>{correct ? '\u2705' : '\u274C'}</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.3rem' }}>
+              Loss: <span className="num-transition" style={{ color: flash ? 'var(--gold)' : 'var(--text)' }}>
+                {loss.toFixed(4)}
+              </span>
+              <Tip text="Lower loss = predictions closer to correct answers." />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="inner-card">
+            <h3>Weights & Gradients
+              <Tip text="The gradient tells which direction to nudge each weight to reduce error." />
+            </h3>
+            <table className="weight-table">
+              <thead>
+                <tr><th>Factor</th><th>Weight</th><th>Gradient</th></tr>
+              </thead>
+              <tbody>
+                {FACTORS.map((f, i) => (
+                  <tr key={i}>
+                    <td>{f.icon} {f.name}</td>
+                    <td className="num-transition" style={{ color: flash ? 'var(--gold)' : 'var(--text)' }}>
+                      {fmt(weights[i], 4)}
+                    </td>
+                    <td className="grad">{fmt(gradients[i], 4)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={{ color: 'var(--text-dim)' }}>Bias</td>
+                  <td className="num-transition" style={{ color: flash ? 'var(--gold)' : 'var(--text)' }}>
+                    {fmt(bias, 4)}
+                  </td>
+                  <td className="grad">{fmt(gradBias, 4)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="lr-row">
+            <span>Learning rate:</span>
+            <input type="range" min="0.01" max="2" step="0.01" value={lr}
+              onChange={e => setLr(parseFloat(e.target.value))} />
+            <span style={{ color: 'var(--gold)', width: '2.5rem' }}>{lr.toFixed(2)}</span>
+            <Tip text="Too high = unstable jumps. Too low = slow learning." />
+          </div>
+        </div>
+      </div>
+
+      <div className="btn-row">
+        <button className="btn btn-primary" onClick={trainStep}>Train on This Example</button>
+        <button className="btn" onClick={() => {
+          setIndex(prev => (prev + 1) % trainingData.length);
+          if (index + 1 >= trainingData.length) setEpoch(e => e + 1);
+        }}>Next Example</button>
+        <button className="btn" onClick={() => setAutoTrain(prev => !prev)}>
+          {autoTrain && <span className="pulse-dot" />}
+          {autoTrain ? 'Stop' : 'Auto-Train'}
+        </button>
+        <button className="btn" onClick={resetWeights}>Reset</button>
+        <button className="btn" onClick={shuffleData}>Shuffle</button>
+      </div>
+
+      {history.length > 1 && (
+        <div className="sparkline-wrap">
+          <h4>Loss History</h4>
+          <svg viewBox={`0 0 ${sparkW} ${sparkH}`} style={{ width: '100%', maxWidth: '420px', height: '55px' }}>
+            <defs>
+              <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--teal)" stopOpacity="0.25"/>
+                <stop offset="100%" stopColor="var(--teal)" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d={sparkFill} fill="url(#spark-fill)" />
+            <path d={sparkPath} fill="none" stroke="var(--teal)" strokeWidth="1.5" />
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── App ────────────────────────────────────────────────
+function App() {
+  const [activeTab, setActiveTab] = useState(0);
+  const [weights, setWeights] = useState([...TARGET_WEIGHTS]);
+  const [bias, setBias] = useState(TARGET_BIAS);
+  const [inputs, setInputs] = useState([12, 0.7, 5, 9, 5]);
+  const [trainingData, setTrainingData] = useState(generateTrainingData);
+
+  const tabs = [
+    { label: 'Try It', icon: '\u{1F9EA}' },
+    { label: 'Boundary', icon: '\u{1F5FA}\uFE0F' },
+    { label: 'Training', icon: '\u{1F9E0}' },
+  ];
+
+  return (
+    <div>
+      <div className="header">
+        <span className="walk-emoji">{'\u{1F333}'}</span>
+        <h1>Decision Neuron</h1>
+        <p className="subtitle">Should I go for a walk? A single neuron decides.</p>
+      </div>
+      <div className="tab-bar">
+        {tabs.map((t, i) => (
+          <button key={i} className={`tab-btn ${activeTab === i ? 'active' : ''}`}
+            onClick={() => setActiveTab(i)}>{t.icon} {t.label}</button>
+        ))}
+      </div>
+      <div className="card">
+        {activeTab === 0 && (
+          <TryItSection inputs={inputs} setInputs={setInputs}
+            weights={weights} bias={bias} />
+        )}
+        {activeTab === 1 && (
+          <BoundarySection weights={weights} bias={bias}
+            inputs={inputs} trainingData={trainingData} />
+        )}
+        {activeTab === 2 && (
+          <TrainingSection weights={weights} setWeights={setWeights}
+            bias={bias} setBias={setBias}
+            trainingData={trainingData} setTrainingData={setTrainingData} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
