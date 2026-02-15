@@ -621,6 +621,47 @@ body::after {
   100% { r: 36; }
 }
 
+/* Chain synapse animation */
+@keyframes synapse-flow {
+  0% { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes synapse-particle {
+  0% { offset-distance: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+.synapse-chain {
+  stroke-dasharray: 4 3 1 3;
+  animation: synapse-flow 0.8s linear infinite;
+}
+.synapse-weight-slider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  justify-content: center;
+}
+.synapse-weight-slider input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 90px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+}
+.synapse-weight-slider input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  background: var(--gold);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(251,191,36,0.3);
+}
+
 /* Extended math */
 .math-step {
   display: flex;
@@ -759,13 +800,16 @@ function Tip({ text }) {
 }
 
 // ─── Neuron SVG ─────────────────────────────────────────
-function NeuronDiagram({ inputs, weights, bias, output, decision }) {
-  const W = 400, H = 310;
-  const inX = 55, nX = 220, outX = 350;
+function NeuronDiagram({ inputs, weights, bias, output, decision, synapseWeight, finalOutput }) {
+  const W = 500, H = 310;
+  const inX = 45, n1X = 190, n2X = 340, outX = 450;
   const nY = H / 2;
   const yPos = FACTORS.map((_, i) => 38 + i * (H - 76) / 4);
   const maxW = Math.max(...weights.map(Math.abs), 0.01);
-  const col = decision ? 'var(--green)' : 'var(--orange)';
+  const col1 = output >= 0.5 ? 'var(--green)' : 'var(--orange)';
+  const col2 = finalOutput >= 0.5 ? 'var(--green)' : 'var(--orange)';
+  const synThick = 2 + Math.abs(synapseWeight) * 4;
+  const synSpeed = Math.max(0.3, 1.2 - Math.abs(synapseWeight) * 0.4);
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
@@ -774,6 +818,8 @@ function NeuronDiagram({ inputs, weights, bias, output, decision }) {
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         <filter id="glow-sm"><feGaussianBlur stdDeviation="1.5" result="b"/>
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="glow-gold"><feGaussianBlur stdDeviation="2" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         <linearGradient id="conn-pos" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="var(--green)" stopOpacity="0.5"/>
           <stop offset="100%" stopColor="var(--green)" stopOpacity="1"/>
@@ -781,6 +827,11 @@ function NeuronDiagram({ inputs, weights, bias, output, decision }) {
         <linearGradient id="conn-neg" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="var(--orange)" stopOpacity="0.5"/>
           <stop offset="100%" stopColor="var(--orange)" stopOpacity="1"/>
+        </linearGradient>
+        <linearGradient id="syn-grad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.4"/>
+          <stop offset="50%" stopColor="var(--gold)" stopOpacity="1"/>
+          <stop offset="100%" stopColor="var(--gold)" stopOpacity="0.4"/>
         </linearGradient>
       </defs>
 
@@ -793,10 +844,10 @@ function NeuronDiagram({ inputs, weights, bias, output, decision }) {
         const speed = Math.max(0.3, 1.5 - contribution * 0.3);
         return (
           <g key={i}>
-            <line x1={inX + 20} y1={yPos[i]} x2={nX - 36} y2={nY}
+            <line x1={inX + 18} y1={yPos[i]} x2={n1X - 36} y2={nY}
               stroke={w >= 0 ? 'url(#conn-pos)' : 'url(#conn-neg)'}
               strokeWidth={t} opacity={op * 0.4} filter="url(#glow-sm)" />
-            <line x1={inX + 20} y1={yPos[i]} x2={nX - 36} y2={nY}
+            <line x1={inX + 18} y1={yPos[i]} x2={n1X - 36} y2={nY}
               stroke={w >= 0 ? '#6ee7a0' : '#fb923c'}
               strokeWidth={Math.max(1, t * 0.5)} opacity={op}
               className="conn-line-animated"
@@ -807,7 +858,7 @@ function NeuronDiagram({ inputs, weights, bias, output, decision }) {
 
       {/* Weight labels */}
       {weights.map((w, i) => {
-        const mx = (inX + 20 + nX - 36) / 2 + (i % 2 === 0 ? -6 : 6);
+        const mx = (inX + 18 + n1X - 36) / 2 + (i % 2 === 0 ? -6 : 6);
         const my = (yPos[i] + nY) / 2 - 5;
         return (
           <text key={'w'+i} x={mx} y={my} fontSize="7"
@@ -820,54 +871,95 @@ function NeuronDiagram({ inputs, weights, bias, output, decision }) {
       {/* Input nodes */}
       {FACTORS.map((f, i) => (
         <g key={i}>
-          <circle cx={inX} cy={yPos[i]} r={17}
+          <circle cx={inX} cy={yPos[i]} r={16}
             fill="var(--bg-deep)" stroke="var(--border)" strokeWidth={1.5} />
           <text x={inX} y={yPos[i] + 1} textAnchor="middle"
-            fontSize="14" dominantBaseline="middle">{f.icon}</text>
-          <text x={inX + 24} y={yPos[i] - 9} fontSize="7.5" fontWeight="500"
+            fontSize="13" dominantBaseline="middle">{f.icon}</text>
+          <text x={inX + 22} y={yPos[i] - 9} fontSize="7" fontWeight="500"
             fill="var(--text)">{f.name}</text>
-          <text x={inX + 24} y={yPos[i] + 5} fontSize="8.5"
+          <text x={inX + 22} y={yPos[i] + 5} fontSize="8"
             fill="var(--gold)" fontFamily="var(--font-mono)">{inputs[i].toFixed(2)}</text>
         </g>
       ))}
 
-      {/* Central neuron with pulse */}
-      <circle cx={nX} cy={nY} r={36}
-        fill="var(--bg-deep)" stroke={col} strokeWidth={2.5}
+      {/* Neuron 1 (summation + sigmoid) */}
+      <circle cx={n1X} cy={nY} r={36}
+        fill="var(--bg-deep)" stroke={col1} strokeWidth={2.5}
         filter="url(#glow-g)"
         style={{ animation: 'neuron-pulse 2s ease-in-out infinite' }} />
-      <text x={nX} y={nY - 6} textAnchor="middle"
-        fontSize="14" fill="var(--text)" fontFamily="var(--font-mono)">{'\u03C3(\u03A3)'}</text>
-      <text x={nX} y={nY + 12} textAnchor="middle"
-        fontSize="8" fill="var(--text-dim)">b = {bias.toFixed(2)}</text>
+      <text x={n1X} y={nY - 6} textAnchor="middle"
+        fontSize="13" fill="var(--text)" fontFamily="var(--font-mono)">{'\u03C3(\u03A3)'}</text>
+      <text x={n1X} y={nY + 12} textAnchor="middle"
+        fontSize="7.5" fill="var(--text-dim)">b = {bias.toFixed(2)}</text>
 
-      {/* Output arrow */}
-      <line x1={nX + 36} y1={nY} x2={outX - 32} y2={nY}
-        stroke={col} strokeWidth={2.5} filter="url(#glow-sm)" />
-      <polygon points={`${outX - 32},${nY - 6} ${outX - 20},${nY} ${outX - 32},${nY + 6}`}
-        fill={col} />
+      {/* ─── Chain Synapse ─── */}
+      {/* Background glow line */}
+      <line x1={n1X + 36} y1={nY} x2={n2X - 28} y2={nY}
+        stroke="var(--gold)" strokeWidth={synThick + 2} opacity={0.08}
+        filter="url(#glow-gold)" />
+      {/* Animated chain */}
+      <line x1={n1X + 36} y1={nY} x2={n2X - 28} y2={nY}
+        stroke="url(#syn-grad)" strokeWidth={synThick}
+        className="synapse-chain"
+        style={{ animationDuration: synSpeed + 's' }} />
+      {/* Synapse weight label */}
+      <text x={(n1X + 36 + n2X - 28) / 2} y={nY - 12} textAnchor="middle"
+        fontSize="8" fill="var(--gold)" fontFamily="var(--font-mono)" fontWeight="500">
+        w = {synapseWeight.toFixed(2)}
+      </text>
+      {/* Synapse vesicle dots */}
+      {[0.2, 0.5, 0.8].map((frac, di) => {
+        const sx = (n1X + 36) + frac * (n2X - 28 - n1X - 36);
+        return (
+          <circle key={di} cx={sx} cy={nY} r={2.5}
+            fill="var(--gold)" opacity={0.5 + Math.abs(synapseWeight) * 0.3}
+            style={{
+              animation: `pulse ${0.6 + di * 0.2}s ease-in-out infinite alternate`,
+              animationDelay: `${di * 0.15}s`
+            }} />
+        );
+      })}
+
+      {/* Neuron 2 (relay/decision) */}
+      <circle cx={n2X} cy={nY} r={28}
+        fill="var(--bg-deep)" stroke={col2} strokeWidth={2.5}
+        filter="url(#glow-g)"
+        style={{ animation: 'neuron-pulse 2.5s ease-in-out infinite', animationDelay: '0.5s' }} />
+      <text x={n2X} y={nY - 4} textAnchor="middle"
+        fontSize="11" fill="var(--text)" fontFamily="var(--font-mono)">{'\u03C3'}</text>
+      <text x={n2X} y={nY + 10} textAnchor="middle"
+        fontSize="7" fill="var(--text-dim)">{(finalOutput * 100).toFixed(0)}%</text>
+
+      {/* Output arrow from neuron 2 */}
+      <line x1={n2X + 28} y1={nY} x2={outX - 30} y2={nY}
+        stroke={col2} strokeWidth={2.5} filter="url(#glow-sm)" />
+      <polygon points={`${outX - 30},${nY - 5} ${outX - 20},${nY} ${outX - 30},${nY + 5}`}
+        fill={col2} />
 
       {/* Output box */}
-      <rect x={outX - 14} y={nY - 28} width={72} height={56} rx={12}
-        fill="var(--bg-deep)" stroke={col} strokeWidth={2}
+      <rect x={outX - 12} y={nY - 26} width={66} height={52} rx={11}
+        fill="var(--bg-deep)" stroke={col2} strokeWidth={2}
         filter="url(#glow-g)" />
-      <text x={outX + 22} y={nY - 5} textAnchor="middle"
-        fontSize="15" fill={col} fontWeight="500" fontFamily="var(--font-serif)">
-        {decision ? 'GO!' : 'STAY'}
+      <text x={outX + 21} y={nY - 4} textAnchor="middle"
+        fontSize="14" fill={col2} fontWeight="500" fontFamily="var(--font-serif)">
+        {finalOutput >= 0.5 ? 'GO!' : 'STAY'}
       </text>
-      <text x={outX + 22} y={nY + 14} textAnchor="middle"
-        fontSize="10" fill="var(--text-dim)" fontFamily="var(--font-mono)">
-        {(output * 100).toFixed(1)}%
+      <text x={outX + 21} y={nY + 13} textAnchor="middle"
+        fontSize="9" fill="var(--text-dim)" fontFamily="var(--font-mono)">
+        {(finalOutput * 100).toFixed(1)}%
       </text>
     </svg>
   );
 }
 
 // ─── Section 1: Try It ──────────────────────────────────
-function TryItSection({ inputs, setInputs, weights, bias }) {
+function TryItSection({ inputs, setInputs, weights, bias, synapseWeight, setSynapseWeight }) {
   const processed = processInputs(inputs);
   const { z, output } = computeNeuron(processed, weights, bias);
   const decision = output >= 0.5;
+  // Chain: neuron1 output → synapse weight → neuron2 sigmoid
+  const n2Input = output * synapseWeight;
+  const finalOutput = sigmoid(n2Input);
 
   // Sensitivity: contribution of each factor
   const contributions = weights.map((w, i) => ({ idx: i, value: w * processed[i] }));
@@ -931,16 +1023,24 @@ function TryItSection({ inputs, setInputs, weights, bias }) {
         </div>
         <div className="tryit-diagram">
           <NeuronDiagram inputs={processed} weights={weights} bias={bias}
-            output={output} decision={decision} />
-          <Tip text="A neuron computes a weighted sum of inputs, adds a bias, then passes the result through sigmoid to produce a probability." />
+            output={output} decision={decision}
+            synapseWeight={synapseWeight} finalOutput={finalOutput} />
+          <div className="synapse-weight-slider">
+            <span>Synapse weight:</span>
+            <input type="range" min="-3" max="3" step="0.1" value={synapseWeight}
+              onChange={e => setSynapseWeight(parseFloat(e.target.value))} />
+            <span style={{ color: 'var(--gold)', minWidth: '2.5rem' }}>{synapseWeight.toFixed(1)}</span>
+            <Tip text="Controls how strongly Neuron 1's signal passes to Neuron 2. Higher = stronger relay. Negative = inverts the signal." />
+          </div>
+          <Tip text="Two neurons in a chain: Neuron 1 computes the weighted sum, then passes its output through a synapse to Neuron 2 for the final decision." />
         </div>
       </div>
 
-      <div className={`result-display ${decision ? 'go' : 'stay'}`}>
-        <span className="result-label" style={{ color: decision ? 'var(--green)' : 'var(--orange)' }}>
-          {decision ? '\u{1F6B6} Go for a walk!' : '\u{1F3E0} Stay in.'}
+      <div className={`result-display ${finalOutput >= 0.5 ? 'go' : 'stay'}`}>
+        <span className="result-label" style={{ color: finalOutput >= 0.5 ? 'var(--green)' : 'var(--orange)' }}>
+          {finalOutput >= 0.5 ? '\u{1F6B6} Go for a walk!' : '\u{1F3E0} Stay in.'}
         </span>
-        <span className="result-pct">{(output * 100).toFixed(1)}% confidence</span>
+        <span className="result-pct">{(finalOutput * 100).toFixed(1)}% confidence</span>
       </div>
 
       <div style={{
@@ -976,12 +1076,20 @@ function TryItSection({ inputs, setInputs, weights, bias }) {
           <span className="term-result" style={{ color: bias >= 0 ? 'var(--green)' : 'var(--orange)' }}>= {fmt(bias, 3)}</span>
         </div>
         <div style={{ marginTop: '0.5rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '0.78rem' }}>
-          <span style={{ color: 'var(--text-dim)' }}>z = </span>
-          <span style={{ color: 'var(--gold)' }}>{z.toFixed(3)}</span>
-          <span style={{ color: 'var(--text-dim)' }}> {'\u2192'} {'\u03C3'}(z) = </span>
-          <strong className={decision ? 'go-text' : 'stay-text'}>{(output * 100).toFixed(1)}%</strong>
-          <span style={{ color: 'var(--text-dim)' }}> {'\u2192'} </span>
-          <strong className={decision ? 'go-text' : 'stay-text'}>{decision ? 'Go!' : 'Stay'}</strong>
+          <div>
+            <span style={{ color: 'var(--text-dim)' }}>Neuron 1: z = </span>
+            <span style={{ color: 'var(--gold)' }}>{z.toFixed(3)}</span>
+            <span style={{ color: 'var(--text-dim)' }}> {'\u2192'} {'\u03C3'}(z) = </span>
+            <strong className={decision ? 'go-text' : 'stay-text'}>{(output * 100).toFixed(1)}%</strong>
+          </div>
+          <div style={{ marginTop: '0.2rem' }}>
+            <span style={{ color: 'var(--text-dim)' }}>Synapse: {output.toFixed(3)} {'\u00D7'} </span>
+            <span style={{ color: 'var(--gold)' }}>{synapseWeight.toFixed(2)}</span>
+            <span style={{ color: 'var(--text-dim)' }}> = {n2Input.toFixed(3)} {'\u2192'} {'\u03C3'} = </span>
+            <strong className={finalOutput >= 0.5 ? 'go-text' : 'stay-text'}>{(finalOutput * 100).toFixed(1)}%</strong>
+            <span style={{ color: 'var(--text-dim)' }}> {'\u2192'} </span>
+            <strong className={finalOutput >= 0.5 ? 'go-text' : 'stay-text'}>{finalOutput >= 0.5 ? 'Go!' : 'Stay'}</strong>
+          </div>
         </div>
       </div>
 
@@ -1451,6 +1559,7 @@ function App() {
   const [weights, setWeights] = useState([...TARGET_WEIGHTS]);
   const [bias, setBias] = useState(TARGET_BIAS);
   const [inputs, setInputs] = useState([12, 0.7, 5, 9, 5]);
+  const [synapseWeight, setSynapseWeight] = useState(2.0);
   const [trainingData, setTrainingData] = useState(generateTrainingData);
 
   const tabs = [
@@ -1464,7 +1573,7 @@ function App() {
       <div className="header">
         <span className="walk-emoji">{'\u{1F333}'}</span>
         <h1>Decision Neuron</h1>
-        <p className="subtitle">Should I go for a walk? A single neuron decides.</p>
+        <p className="subtitle">Should I go for a walk? Two neurons decide.</p>
       </div>
       <div className="tab-bar">
         {tabs.map((t, i) => (
@@ -1475,7 +1584,8 @@ function App() {
       <div className="card">
         {activeTab === 0 && (
           <TryItSection inputs={inputs} setInputs={setInputs}
-            weights={weights} bias={bias} />
+            weights={weights} bias={bias}
+            synapseWeight={synapseWeight} setSynapseWeight={setSynapseWeight} />
         )}
         {activeTab === 1 && (
           <BoundarySection weights={weights} bias={bias}
