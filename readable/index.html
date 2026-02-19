@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Readable Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #07070e;
+      --surface: #0c0c18;
+      --border:  rgba(255,255,255,0.07);
+      --border-hi: rgba(255,255,255,0.13);
+      --text:    #eceef8;
+      --muted:   #5c6480;
+      --accent:  #8b9cf8;
+      --pass:    #34d399;
+      --fail:    #f87171;
+      --warn:    #fbbf24;
+    }
+
+    html, body { height: 100%; }
+
+    /* ── Body + typographic background ── */
+    body {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      background-color: var(--bg);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='360'%3E%3Ctext x='12' y='95' font-size='108' fill='rgba(120,150,255,0.04)' font-family='Georgia,serif' font-style='italic'%3EAa%3C/text%3E%3Ctext x='260' y='62' font-size='52' fill='rgba(120,150,255,0.028)' font-family='Georgia,serif'%3ERr%3C/text%3E%3Ctext x='340' y='160' font-size='74' fill='rgba(120,150,255,0.024)' font-family='Georgia,serif' font-style='italic'%3ETt%3C/text%3E%3Ctext x='28' y='250' font-size='34' fill='rgba(120,150,255,0.026)' font-family='monospace'%3E4.5:1%3C/text%3E%3Ctext x='170' y='340' font-size='82' fill='rgba(120,150,255,0.03)' font-family='Georgia,serif'%3EGg%3C/text%3E%3Ctext x='390' y='330' font-size='44' fill='rgba(120,150,255,0.022)' font-family='Georgia,serif' font-style='italic'%3EPp%3C/text%3E%3Ctext x='100' y='180' font-size='28' fill='rgba(120,150,255,0.019)' font-family='monospace'%3EWCAG%3C/text%3E%3C/svg%3E");
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Ambient colour orbs that give glassmorphism something to blur against */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -20%; right: -8%;
+      width: 720px; height: 720px;
+      background: radial-gradient(circle, rgba(100,80,255,0.1) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -25%; left: 10%;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(60,110,255,0.08) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    /* ── Header ── */
+    header {
+      position: relative;
+      z-index: 10;
+      background: rgba(8, 8, 20, 0.82);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 1px solid var(--border-hi);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.04), 0 4px 32px rgba(80,80,200,0.15);
+      padding: 1rem 1.75rem;
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    header h1 em {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-weight: 400;
+      color: var(--accent);
+      margin-right: 0.05em;
+    }
+    header p { font-size: 0.78rem; color: var(--muted); font-weight: 400; letter-spacing: 0.01em; }
+
+    /* ── Layout ── */
+    main {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    .sidebar {
+      background: rgba(7, 7, 18, 0.75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+
+    /* Custom scrollbar */
+    .sidebar::-webkit-scrollbar, .content::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track, .content::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb, .content::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1); border-radius: 2px;
+    }
+
+    .content {
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    /* ── Cards — glassmorphism ── */
+    .card {
+      background: rgba(16, 16, 36, 0.52);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid var(--border);
+      border-top-color: var(--border-hi);
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow:
+        0 4px 24px rgba(0,0,0,0.4),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    .card-title {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: rgba(180,190,255,0.38);
+      margin-bottom: 0.7rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ── Swatches ── */
+    .swatch {
+      height: 28px;
+      border-radius: 7px;
+      border: 1px solid var(--border-hi);
+      margin-bottom: 0.6rem;
+      transition: background 0.12s;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    /* ── RGB rows ── */
+    .rgb-row {
+      display: grid;
+      grid-template-columns: 16px 1fr 50px;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 0.4rem;
+    }
+    .ch { font-size: 0.62rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; }
+    .ch.r { color: #ff7b72; }
+    .ch.g { color: #7ee787; }
+    .ch.b { color: #79c0ff; }
+
+    /* ── Sliders ── */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: rgba(235,238,255,0.92);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 0 2px rgba(139,156,248,0.35), 0 2px 6px rgba(0,0,0,0.5);
+      transition: box-shadow 0.15s;
+    }
+    input[type="range"]:hover::-webkit-slider-thumb {
+      box-shadow: 0 0 0 3px rgba(139,156,248,0.55), 0 2px 8px rgba(0,0,0,0.6);
+    }
+
+    /* Slider track colours */
+    #bg-r-range   { background: linear-gradient(to right, #1a0000, #f00); }
+    #bg-g-range   { background: linear-gradient(to right, #001a00, #0f0); }
+    #bg-b-range   { background: linear-gradient(to right, #00001a, #00f); }
+    #txt-r-range  { background: linear-gradient(to right, #1a0000, #f00); }
+    #txt-g-range  { background: linear-gradient(to right, #001a00, #0f0); }
+    #txt-b-range  { background: linear-gradient(to right, #00001a, #00f); }
+    #font-size-range      { background: linear-gradient(to right, #1a1a2e, #8b9cf8); }
+    #line-spacing-range   { background: linear-gradient(to right, #0d2218, #34d399); }
+    #letter-spacing-range { background: linear-gradient(to right, #1a102e, #a78bfa); }
+
+    /* ── Number inputs & selects ── */
+    input[type="number"], select {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.22rem 0.4rem;
+      font-size: 0.73rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    input[type="number"]:focus, select:focus {
+      border-color: rgba(139,156,248,0.6);
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* Select arrow */
+    select {
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%235c6480'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 12px;
+      padding-right: 1.75rem;
+      height: 30px;
+      cursor: pointer;
+    }
+    select:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    /* ── Slider + input row ── */
+    .sf-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    .sf-row {
+      display: grid;
+      grid-template-columns: 1fr 50px;
+      gap: 0.45rem;
+      align-items: center;
+      margin-bottom: 0.55rem;
+    }
+
+    /* ── Vision radio ── */
+    .vision-opt {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .vision-opt:hover {
+      background: rgba(139,156,248,0.1);
+    }
+    .vision-opt input[type="radio"] { accent-color: var(--accent); margin-top: 3px; flex-shrink: 0; }
+    .vision-name { font-size: 0.8rem; font-weight: 500; }
+    .vision-desc { font-size: 0.67rem; color: var(--muted); margin-top: 1px; }
+
+    /* ── Disabled state ── */
+    .disabled { opacity: 0.35; pointer-events: none; transition: opacity 0.2s; }
+
+    /* ── Preview ── */
+    .preview-card { flex-grow: 1; }
+    #preview {
+      border-radius: 10px;
+      padding: 2.75rem 3.25rem;
+      min-height: 400px;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow:
+        inset 0 0 60px rgba(0,0,0,0.2),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: background-color 0.15s, color 0.15s;
+    }
+    #preview .ph { font-size: 1.4em; font-weight: bold; margin-bottom: 0.65em; }
+    #preview p + p { margin-top: 0.85em; }
+
+    /* ── Metrics grid ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+    }
+    .metric {
+      background: rgba(16, 16, 36, 0.52);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid var(--border);
+      border-top-color: var(--border-hi);
+      border-radius: 14px;
+      padding: 0.875rem 0.75rem;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .metric-label {
+      font-size: 0.6rem;
+      color: rgba(180,190,255,0.38);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+    }
+    .metric-val {
+      font-size: 1.45rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    .metric-val.big { font-size: 1.75rem; }
+
+    /* ── WCAG checks ── */
+    .wcag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+    .wcag-row {
+      background: rgba(10,10,26,0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-top-color: var(--border-hi);
+      border-radius: 10px;
+      padding: 0.65rem 0.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .wcag-info-label     { font-size: 0.8rem; font-weight: 500; }
+    .wcag-info-threshold { font-size: 0.67rem; color: var(--muted); margin-top: 1px; }
+
+    .badge {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 0.22rem 0.65rem;
+      border-radius: 20px;
+      border: 1px solid;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge.pass {
+      background: rgba(52,211,153,0.12);
+      color: var(--pass);
+      border-color: rgba(52,211,153,0.28);
+      box-shadow: 0 0 12px rgba(52,211,153,0.1);
+    }
+    .badge.fail {
+      background: rgba(248,113,113,0.12);
+      color: var(--fail);
+      border-color: rgba(248,113,113,0.28);
+    }
+
+    /* ── Accessibility grade ── */
+    .grade-layout { display: flex; align-items: center; gap: 1.25rem; }
+    .grade-badge {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      width: 84px;
+      height: 84px;
+      border-radius: 14px;
+      border: 1.5px solid currentColor;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: color 0.25s, border-color 0.25s, box-shadow 0.25s, font-size 0.1s;
+      box-shadow: 0 0 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+      background: rgba(16,16,36,0.6);
+      backdrop-filter: blur(10px);
+    }
+    .grade-level { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.35rem; letter-spacing: -0.01em; }
+    .grade-rec   { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      main { grid-template-columns: 1fr; overflow: visible; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .wcag-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1><em>Readable</em> Explorer</h1>
+  <p>Explore readability of color, type, and spacing combinations</p>
+</header>
+
+<main>
+
+  <!-- ══════════════════════════════════════════════
+       SIDEBAR CONTROLS
+  ══════════════════════════════════════════════ -->
+  <aside class="sidebar">
+
+    <!-- Preset Color Schemes -->
+    <!-- option values: "bgR,bgG,bgB,txtR,txtG,txtB" -->
+    <div class="card">
+      <div class="card-title">Color Presets</div>
+      <select id="preset-select">
+        <option value="">— Load a preset —</option>
+        <optgroup label="High Contrast">
+          <option value="255,255,255,0,0,0">Black on White</option>
+          <option value="0,0,0,255,255,255">White on Black</option>
+        </optgroup>
+        <optgroup label="Low Contrast">
+          <option value="255,255,255,200,200,200">Light Gray on White</option>
+          <option value="0,0,0,60,60,60">Dark Gray on Black</option>
+        </optgroup>
+        <optgroup label="Common Website Schemes">
+          <option value="0,31,91,255,255,255">White on Navy</option>
+          <option value="245,245,245,26,26,110">Dark Blue on Light Gray</option>
+          <option value="236,240,241,44,62,80">Dark Slate on Off-White</option>
+          <option value="255,255,255,44,62,80">Dark Slate on White</option>
+        </optgroup>
+        <optgroup label="Problematic Combinations">
+          <option value="255,255,255,255,255,0">Yellow on White</option>
+          <option value="0,128,0,255,0,0">Red on Green</option>
+          <option value="255,255,255,192,192,192">Silver on White</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <!-- Background Color -->
+    <div class="card" id="bg-card">
+      <div class="card-title">Background Color</div>
+      <div class="swatch" id="bg-swatch"></div>
+      <div class="rgb-row">
+        <span class="ch r">R</span>
+        <input type="range" id="bg-r-range" min="0" max="255" value="255">
+        <input type="number"  id="bg-r-num"   min="0" max="255" value="255">
+      </div>
+      <div class="rgb-row">
+        <span class="ch g">G</span>
+        <input type="range" id="bg-g-range" min="0" max="255" value="255">
+        <input type="number"  id="bg-g-num"   min="0" max="255" value="255">
+      </div>
+      <div class="rgb-row">
+        <span class="ch b">B</span>
+        <input type="range" id="bg-b-range" min="0" max="255" value="255">
+        <input type="number"  id="bg-b-num"   min="0" max="255" value="255">
+      </div>
+    </div>
+
+    <!-- Text Color -->
+    <div class="card" id="txt-card">
+      <div class="card-title">Text Color</div>
+      <div class="swatch" id="txt-swatch"></div>
+      <div class="rgb-row">
+        <span class="ch r">R</span>
+        <input type="range" id="txt-r-range" min="0" max="255" value="0">
+        <input type="number"  id="txt-r-num"   min="0" max="255" value="0">
+      </div>
+      <div class="rgb-row">
+        <span class="ch g">G</span>
+        <input type="range" id="txt-g-range" min="0" max="255" value="0">
+        <input type="number"  id="txt-g-num"   min="0" max="255" value="0">
+      </div>
+      <div class="rgb-row">
+        <span class="ch b">B</span>
+        <input type="range" id="txt-b-range" min="0" max="255" value="0">
+        <input type="number"  id="txt-b-num"   min="0" max="255" value="0">
+      </div>
+    </div>
+
+    <!-- Text Size -->
+    <div class="card">
+      <div class="card-title">Text Size</div>
+      <div class="sf-label">
+        Font Size
+        <span><span id="font-size-display">18</span> px</span>
+      </div>
+      <div class="sf-row">
+        <input type="range"  id="font-size-range" min="8" max="72" value="18">
+        <input type="number" id="font-size-num"   min="8" max="72" value="18">
+      </div>
+    </div>
+
+    <!-- Font Family -->
+    <div class="card">
+      <div class="card-title">Font Family</div>
+      <select id="font-family-select">
+        <option value="sans-serif">Sans-serif — Arial, Helvetica</option>
+        <option value="serif">Serif — Times New Roman, Georgia</option>
+        <option value="monospace">Monospace — Courier New, Consolas</option>
+        <option value="cursive">Cursive — handwriting style</option>
+        <option value="system-ui">System UI — OS default</option>
+      </select>
+    </div>
+
+    <!-- Line &amp; Letter Spacing -->
+    <div class="card">
+      <div class="card-title">Text Spacing</div>
+      <div class="sf-label">
+        Line Spacing
+        <span id="line-spacing-display">1.5</span>
+      </div>
+      <div class="sf-row">
+        <!-- slider: integer 10–30 → real 1.0–3.0 -->
+        <input type="range"  id="line-spacing-range" min="10" max="30" step="1" value="15">
+        <input type="number" id="line-spacing-num"   min="1.0" max="3.0" step="0.1" value="1.5">
+      </div>
+      <div class="sf-label">
+        Letter Spacing
+        <span><span id="letter-spacing-display">0</span> px</span>
+      </div>
+      <div class="sf-row">
+        <!-- slider: integer -20–100 → real -2.0–10.0 -->
+        <input type="range"  id="letter-spacing-range" min="-20" max="100" step="5" value="0">
+        <input type="number" id="letter-spacing-num"   min="-2" max="10" step="0.5" value="0">
+      </div>
+    </div>
+
+    <!-- Color Vision Simulation -->
+    <div class="card">
+      <div class="card-title">Color Vision Simulation</div>
+      <label class="vision-opt">
+        <input type="radio" name="vision" value="normal" checked>
+        <span>
+          <div class="vision-name">Normal Vision</div>
+          <div class="vision-desc">Colors displayed as selected</div>
+        </span>
+      </label>
+      <label class="vision-opt">
+        <input type="radio" name="vision" value="protanopia">
+        <span>
+          <div class="vision-name">Protanopia</div>
+          <div class="vision-desc">Red-blind — no red cone cells</div>
+        </span>
+      </label>
+      <label class="vision-opt">
+        <input type="radio" name="vision" value="deuteranopia">
+        <span>
+          <div class="vision-name">Deuteranopia</div>
+          <div class="vision-desc">Green-blind — no green cone cells</div>
+        </span>
+      </label>
+      <label class="vision-opt">
+        <input type="radio" name="vision" value="tritanopia">
+        <span>
+          <div class="vision-name">Tritanopia</div>
+          <div class="vision-desc">Blue-blind — no blue cone cells</div>
+        </span>
+      </label>
+      <label class="vision-opt">
+        <input type="radio" name="vision" value="monochromacy">
+        <span>
+          <div class="vision-name">Monochromacy</div>
+          <div class="vision-desc">Complete grayscale vision</div>
+        </span>
+      </label>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════════ -->
+  <section class="content">
+
+    <!-- Text Preview -->
+    <div class="card preview-card">
+      <div class="card-title">
+        Text Preview
+        <span id="vision-label" style="color:var(--accent);font-size:0.65rem;font-weight:600"></span>
+      </div>
+      <div id="preview">
+        <div class="ph">The quick brown fox jumps over the lazy dog</div>
+        <p>Pack my box with five dozen liquor jugs. Sphinx of black quartz, judge my vow. How vexingly quick daft zebras jump!</p>
+        <p>ABCDEFGHIJKLMNOPQRSTUVWXYZ · abcdefghijklmnopqrstuvwxyz · 0123456789</p>
+        <p>Readability is the quality of being easily legible and comprehensible. It depends on contrast, type size, spacing, and typeface choice.</p>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-grid">
+      <div class="metric">
+        <div class="metric-label">Contrast Ratio</div>
+        <div class="metric-val big" id="contrast-val">21.00:1</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Accessibility Grade</div>
+        <div class="metric-val" id="grade-metric" style="color:var(--pass)">AAA</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Background Luminosity</div>
+        <div class="metric-val" id="bg-lum-val">1.0000</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Text Luminosity</div>
+        <div class="metric-val" id="txt-lum-val">0.0000</div>
+      </div>
+    </div>
+
+    <!-- WCAG Compliance -->
+    <div class="card">
+      <div class="card-title">WCAG 2.1 Compliance</div>
+      <div class="wcag-grid">
+        <div class="wcag-row">
+          <div>
+            <div class="wcag-info-label">Normal Text (AA)</div>
+            <div class="wcag-info-threshold">Requires ≥ 4.5:1</div>
+          </div>
+          <div class="badge pass" id="wcag-normal-badge">Pass</div>
+        </div>
+        <div class="wcag-row">
+          <div>
+            <div class="wcag-info-label">Large Text (AA)</div>
+            <div class="wcag-info-threshold">Requires ≥ 3:1 (18pt+ or 14pt+ bold)</div>
+          </div>
+          <div class="badge pass" id="wcag-large-badge">Pass</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accessibility Assessment -->
+    <div class="card">
+      <div class="card-title">Accessibility Assessment</div>
+      <div class="grade-layout">
+        <div class="grade-badge" id="grade-badge" style="color:var(--pass)">AAA</div>
+        <div>
+          <div class="grade-level" id="grade-level">WCAG AAA</div>
+          <div class="grade-rec" id="grade-rec">Excellent readability — meets the highest WCAG standard.</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════════════
+let bgR = 255, bgG = 255, bgB = 255;
+let txtR = 0,  txtG = 0,  txtB = 0;
+let fontSize     = 18;
+let fontFamily   = 'sans-serif';
+let lineSpacing  = 1.5;
+let letterSpacing = 0;
+let visionType   = 'normal';
+
+// ══════════════════════════════════════════════════════════════════════
+//  COLOR VISION DEFICIENCY MATRICES (Viénot 1999, linearized sRGB)
+// ══════════════════════════════════════════════════════════════════════
+const CVD = {
+  protanopia: [
+    [0.56667, 0.43333, 0.00000],
+    [0.55833, 0.44167, 0.00000],
+    [0.00000, 0.24167, 0.75833]
+  ],
+  deuteranopia: [
+    [0.62500, 0.37500, 0.00000],
+    [0.70000, 0.30000, 0.00000],
+    [0.00000, 0.30000, 0.70000]
+  ],
+  tritanopia: [
+    [0.95000, 0.05000, 0.00000],
+    [0.00000, 0.43333, 0.56667],
+    [0.00000, 0.47500, 0.52500]
+  ]
+};
+
+// ══════════════════════════════════════════════════════════════════════
+//  COLOR MATH
+// ══════════════════════════════════════════════════════════════════════
+function toLinear(c) {
+  c /= 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function toGamma(c) {
+  c = Math.max(0, Math.min(1, c));
+  return c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+}
+
+function luminance(r, g, b) {
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function contrastRatio(lum1, lum2) {
+  const l1 = Math.max(lum1, lum2), l2 = Math.min(lum1, lum2);
+  return (l1 + 0.05) / (l2 + 0.05);
+}
+
+function simulateColor(r, g, b, type) {
+  if (type === 'normal') return [r, g, b];
+  if (type === 'monochromacy') {
+    const L = luminance(r, g, b);
+    const v = Math.round(toGamma(L) * 255);
+    return [v, v, v];
+  }
+  const m = CVD[type];
+  const rl = toLinear(r), gl = toLinear(g), bl = toLinear(b);
+  return [
+    Math.round(toGamma(m[0][0] * rl + m[0][1] * gl + m[0][2] * bl) * 255),
+    Math.round(toGamma(m[1][0] * rl + m[1][1] * gl + m[1][2] * bl) * 255),
+    Math.round(toGamma(m[2][0] * rl + m[2][1] * gl + m[2][2] * bl) * 255)
+  ];
+}
+
+function rgb(r, g, b) { return `rgb(${r},${g},${b})`; }
+
+// ══════════════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════════════
+function update() {
+  // Simulated colors for the display area
+  const [simBgR,  simBgG,  simBgB]  = simulateColor(bgR,  bgG,  bgB,  visionType);
+  const [simTxtR, simTxtG, simTxtB] = simulateColor(txtR, txtG, txtB, visionType);
+
+  // Preview
+  const preview = document.getElementById('preview');
+  preview.style.backgroundColor = rgb(simBgR,  simBgG,  simBgB);
+  preview.style.color            = rgb(simTxtR, simTxtG, simTxtB);
+  preview.style.fontSize         = fontSize + 'px';
+  preview.style.fontFamily       = fontFamily;
+  preview.style.lineHeight       = lineSpacing;
+  preview.style.letterSpacing    = letterSpacing + 'px';
+
+  // Swatches always show original colors
+  document.getElementById('bg-swatch').style.backgroundColor  = rgb(bgR, bgG, bgB);
+  document.getElementById('txt-swatch').style.backgroundColor = rgb(txtR, txtG, txtB);
+
+  // Luminance & contrast — use simulated colors when a simulation is active
+  const [cBgR, cBgG, cBgB]   = simulateColor(bgR,  bgG,  bgB,  visionType);
+  const [cTxtR, cTxtG, cTxtB] = simulateColor(txtR, txtG, txtB, visionType);
+  const bgLum  = luminance(cBgR, cBgG, cBgB);
+  const txtLum = luminance(cTxtR, cTxtG, cTxtB);
+  const cr     = contrastRatio(bgLum, txtLum);
+
+  document.getElementById('bg-lum-val').textContent  = bgLum.toFixed(4);
+  document.getElementById('txt-lum-val').textContent = txtLum.toFixed(4);
+  document.getElementById('contrast-val').textContent = cr.toFixed(2) + ':1';
+
+  // WCAG badges
+  const normalPass = cr >= 4.5;
+  const largePass  = cr >= 3.0;
+  setBadge('wcag-normal-badge', normalPass);
+  setBadge('wcag-large-badge',  largePass);
+
+  // Grade
+  updateGrade(cr);
+
+  // Vision simulation UI
+  const simActive = visionType !== 'normal';
+  document.getElementById('bg-card').classList.toggle('disabled', simActive);
+  document.getElementById('txt-card').classList.toggle('disabled', simActive);
+  document.getElementById('preset-select').disabled = simActive;
+
+  const visionLabels = {
+    normal: '', protanopia: 'Protanopia Simulation',
+    deuteranopia: 'Deuteranopia Simulation',
+    tritanopia: 'Tritanopia Simulation',
+    monochromacy: 'Monochromacy Simulation'
+  };
+  document.getElementById('vision-label').textContent = visionLabels[visionType];
+}
+
+function setBadge(id, pass) {
+  const el = document.getElementById(id);
+  el.textContent = pass ? 'Pass' : 'Fail';
+  el.className   = 'badge ' + (pass ? 'pass' : 'fail');
+}
+
+function updateGrade(cr) {
+  let grade, level, rec, color;
+  if (cr >= 7) {
+    grade = 'AAA'; level = 'WCAG AAA'; color = '#3fb950';
+    rec = 'Excellent readability — meets the highest WCAG standard.';
+  } else if (cr >= 4.5) {
+    grade = 'AA'; level = 'WCAG AA'; color = '#56d364';
+    rec = 'Good readability — meets the standard WCAG threshold for normal text.';
+  } else if (cr >= 3.0) {
+    grade = 'A'; level = 'Large Text Only'; color = '#d29922';
+    rec = 'Partial — passes only for large text. Consider increasing contrast for body text.';
+  } else {
+    grade = 'Fail'; level = 'Does Not Pass'; color = '#f85149';
+    rec = 'Does not meet any WCAG accessibility standards. Increase contrast significantly.';
+  }
+
+  const gradeBadge = document.getElementById('grade-badge');
+  gradeBadge.textContent   = grade;
+  gradeBadge.style.color       = color;
+  gradeBadge.style.borderColor = color;
+  gradeBadge.style.fontSize    = grade === 'Fail' ? '1.3rem' : '2rem';
+
+  const gradeMetric = document.getElementById('grade-metric');
+  gradeMetric.textContent  = grade;
+  gradeMetric.style.color  = color;
+
+  document.getElementById('grade-level').textContent = level;
+  document.getElementById('grade-level').style.color  = color;
+  document.getElementById('grade-rec').textContent   = rec;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  WIRE UP CONTROLS
+// ══════════════════════════════════════════════════════════════════════
+
+// Background RGB
+['r','g','b'].forEach(ch => {
+  const get = { r: () => bgR, g: () => bgG, b: () => bgB };
+  const set = { r: v => bgR = v, g: v => bgG = v, b: v => bgB = v };
+  const range = document.getElementById(`bg-${ch}-range`);
+  const num   = document.getElementById(`bg-${ch}-num`);
+  range.addEventListener('input', () => {
+    const v = parseInt(range.value);
+    num.value = v; set[ch](v); update();
+  });
+  num.addEventListener('input', () => {
+    let v = parseInt(num.value);
+    if (isNaN(v)) return;
+    v = Math.max(0, Math.min(255, v));
+    num.value = v; range.value = v; set[ch](v); update();
+  });
+});
+
+// Text RGB
+['r','g','b'].forEach(ch => {
+  const set = { r: v => txtR = v, g: v => txtG = v, b: v => txtB = v };
+  const range = document.getElementById(`txt-${ch}-range`);
+  const num   = document.getElementById(`txt-${ch}-num`);
+  range.addEventListener('input', () => {
+    const v = parseInt(range.value);
+    num.value = v; set[ch](v); update();
+  });
+  num.addEventListener('input', () => {
+    let v = parseInt(num.value);
+    if (isNaN(v)) return;
+    v = Math.max(0, Math.min(255, v));
+    num.value = v; range.value = v; set[ch](v); update();
+  });
+});
+
+// Font size
+(function() {
+  const range = document.getElementById('font-size-range');
+  const num   = document.getElementById('font-size-num');
+  const disp  = document.getElementById('font-size-display');
+  range.addEventListener('input', () => {
+    fontSize = parseInt(range.value);
+    num.value = fontSize; disp.textContent = fontSize; update();
+  });
+  num.addEventListener('input', () => {
+    let v = parseInt(num.value);
+    if (isNaN(v)) return;
+    v = Math.max(8, Math.min(72, v));
+    fontSize = v; num.value = v; range.value = v; disp.textContent = v; update();
+  });
+})();
+
+// Font family
+document.getElementById('font-family-select').addEventListener('change', function() {
+  fontFamily = this.value; update();
+});
+
+// Line spacing (slider range 10–30 represents 1.0–3.0)
+(function() {
+  const range = document.getElementById('line-spacing-range');
+  const num   = document.getElementById('line-spacing-num');
+  const disp  = document.getElementById('line-spacing-display');
+  range.addEventListener('input', () => {
+    lineSpacing = parseInt(range.value) / 10;
+    num.value = lineSpacing.toFixed(1); disp.textContent = lineSpacing.toFixed(1); update();
+  });
+  num.addEventListener('input', () => {
+    let v = parseFloat(num.value);
+    if (isNaN(v)) return;
+    v = Math.max(1.0, Math.min(3.0, v));
+    lineSpacing = v; num.value = v.toFixed(1);
+    range.value = Math.round(v * 10); disp.textContent = v.toFixed(1); update();
+  });
+})();
+
+// Letter spacing (slider range -20–100 represents -2.0–10.0)
+(function() {
+  const range = document.getElementById('letter-spacing-range');
+  const num   = document.getElementById('letter-spacing-num');
+  const disp  = document.getElementById('letter-spacing-display');
+  range.addEventListener('input', () => {
+    letterSpacing = parseInt(range.value) / 10;
+    num.value = letterSpacing.toFixed(1); disp.textContent = letterSpacing.toFixed(1); update();
+  });
+  num.addEventListener('input', () => {
+    let v = parseFloat(num.value);
+    if (isNaN(v)) return;
+    v = Math.max(-2, Math.min(10, v));
+    letterSpacing = v; num.value = v.toFixed(1);
+    range.value = Math.round(v * 10); disp.textContent = v.toFixed(1); update();
+  });
+})();
+
+// Vision simulation
+document.querySelectorAll('input[name="vision"]').forEach(radio => {
+  radio.addEventListener('change', function() {
+    visionType = this.value; update();
+  });
+});
+
+// Presets
+document.getElementById('preset-select').addEventListener('change', function() {
+  if (!this.value) return;
+  const [br, bg, bb, tr, tg, tb] = this.value.split(',').map(Number);
+  bgR = br; bgG = bg; bgB = bb;
+  txtR = tr; txtG = tg; txtB = tb;
+
+  ['r','g','b'].forEach((ch, i) => {
+    const bgVals  = [bgR,  bgG,  bgB];
+    const txtVals = [txtR, txtG, txtB];
+    document.getElementById(`bg-${ch}-range`).value  = bgVals[i];
+    document.getElementById(`bg-${ch}-num`).value    = bgVals[i];
+    document.getElementById(`txt-${ch}-range`).value = txtVals[i];
+    document.getElementById(`txt-${ch}-num`).value   = txtVals[i];
+  });
+
+  update();
+  this.value = ''; // reset select so same preset can be reloaded
+});
+
+// ── Initial render ────────────────────────────────────────────────────
+update();
+</script>
+
+</body>
+</html>
