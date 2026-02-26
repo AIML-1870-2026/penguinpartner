@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blackjack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,700;0,900;1,400&family=Raleway:wght@400;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Particle Canvas -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- Responsible Gaming Banner -->
+<div class="resp-banner" id="respBanner" role="status">
+  You've been playing for 30 minutes. Remember, this is just for fun!
+  <button onclick="document.getElementById('respBanner').classList.remove('open')">Dismiss</button>
+</div>
+
+<!-- Panel Scrim -->
+<div class="panel-scrim" id="panelScrim" onclick="closeAllPanels()"></div>
+
+<!-- History Panel -->
+<div class="panel" id="historyPanel" role="dialog" aria-label="Betting History" aria-modal="true">
+  <div class="panel-header">
+    <span class="panel-title">Betting History</span>
+    <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button>
+  </div>
+  <div class="panel-body" id="historyBody"><div class="history-empty"><p>No rounds played yet.</p><p>Good luck at the table.</p></div></div>
+  <div class="panel-footer">
+    <span id="historyFooter">Session: 0 min · 0 rounds</span>
+    <button class="panel-nav-btn" onclick="switchPanel('stats')">View Statistics →</button>
+  </div>
+</div>
+
+<!-- Stats Panel -->
+<div class="panel" id="statsPanel" role="dialog" aria-label="Session Statistics" aria-modal="true">
+  <div class="panel-header">
+    <span class="panel-title">Session Statistics</span>
+    <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button>
+  </div>
+  <div class="panel-body" id="statsBody"><div class="stats-empty"><p>Play a round to see your session statistics here.</p><p>Good luck at the table.</p></div></div>
+  <div class="panel-footer">
+    <span id="statsFooter">Session: 0 min</span>
+    <button class="panel-nav-btn" onclick="switchPanel('history')">View Full History →</button>
+  </div>
+</div>
+
+<!-- Help Panel -->
+<div class="panel" id="helpPanel" role="dialog" aria-label="Rules Reference" aria-modal="true">
+  <div class="panel-header">
+    <span class="panel-title">Rules Reference</span>
+    <button class="panel-close" onclick="closeAllPanels()" aria-label="Close">✕</button>
+  </div>
+  <div class="panel-body help-content">
+    <h3>The Goal</h3>
+    <p>Beat the dealer by getting a hand total closer to 21 without going over. Cards 2–10 are face value; J, Q, K = 10; Ace = 1 or 11.</p>
+    <h3>Actions</h3>
+    <p><span class="glossary-term">Hit</span> — Draw one more card.</p>
+    <p><span class="glossary-term">Stand</span> — End your turn.</p>
+    <p><span class="glossary-term">Double Down</span> — Double your bet and receive exactly one more card (initial two cards only).</p>
+    <p><span class="glossary-term">Split</span> — If your first two cards are the same rank, split into two separate hands (each gets one more card).</p>
+    <p><span class="glossary-term">Surrender</span> — Forfeit half your bet and end the round immediately (initial two cards only).</p>
+    <h3>Special Situations</h3>
+    <p><span class="glossary-term">Blackjack</span> — An Ace + a 10-value card on your first two cards. Pays 3:2.</p>
+    <p><span class="glossary-term">Bust</span> — Going over 21. You lose your bet immediately.</p>
+    <p><span class="glossary-term">Push</span> — A tie. Your bet is returned.</p>
+    <p><span class="glossary-term">Insurance</span> — When the dealer shows an Ace, you may bet up to half your bet. Pays 2:1 if dealer has Blackjack.</p>
+    <p><span class="glossary-term">Soft hand</span> — A hand where an Ace counts as 11 (e.g., A+6 = 7/17).</p>
+    <h3>Dealer Rules</h3>
+    <p>The dealer must hit on soft 17 and stand on hard 17 or higher.</p>
+  </div>
+</div>
+
+<!-- Onboarding Overlay -->
+<div class="onboarding" id="onboarding">
+  <div class="onboarding-card">
+    <div class="onboarding-title">♠ Welcome to Blackjack</div>
+    <div class="onboarding-panel active" id="ob-panel-0">
+      <p>Your goal: beat the dealer by getting a hand total closer to <strong>21</strong> without going over.</p>
+      <p>If your total exceeds 21, you <strong>bust</strong> and lose your bet. Same for the dealer.</p>
+    </div>
+    <div class="onboarding-panel" id="ob-panel-1">
+      <p><strong>Card values:</strong></p>
+      <ul>
+        <li>2 through 10 — face value</li>
+        <li>Jack, Queen, King — 10</li>
+        <li>Ace — 1 or 11, whichever helps you most</li>
+      </ul>
+      <p>An Ace counted as 11 gives you a <strong>soft</strong> hand.</p>
+    </div>
+    <div class="onboarding-panel" id="ob-panel-2">
+      <p><strong>Your options each turn:</strong></p>
+      <ul>
+        <li><strong>Hit</strong> — Draw a card</li>
+        <li><strong>Stand</strong> — End your turn</li>
+        <li><strong>Double</strong> — Double bet, one card only</li>
+        <li><strong>Split</strong> — Split matching cards into two hands</li>
+        <li><strong>Surrender</strong> — Forfeit half your bet and exit</li>
+      </ul>
+    </div>
+    <div class="onboarding-nav">
+      <button class="btn btn-clear" id="ob-prev" onclick="obNav(-1)" style="visibility:hidden">Back</button>
+      <div class="onboarding-dots">
+        <div class="onboarding-dot active" data-i="0"></div>
+        <div class="onboarding-dot" data-i="1"></div>
+        <div class="onboarding-dot" data-i="2"></div>
+      </div>
+      <button class="btn btn-gold" id="ob-next" onclick="obNav(1)">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Insurance Modal -->
+<div class="insurance-modal" id="insuranceModal">
+  <div class="insurance-box">
+    <div class="insurance-title">Insurance?</div>
+    <div class="insurance-desc" id="insuranceDesc">The dealer is showing an Ace. Would you like to take insurance for $<span id="insuranceAmount">0</span>? It pays 2:1 if the dealer has Blackjack.</div>
+    <div class="insurance-btns">
+      <button class="btn btn-gold" onclick="takeInsurance(true)">Take Insurance</button>
+      <button class="btn" onclick="takeInsurance(false)">No Thanks</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main Game Table -->
+<main class="game-table" id="gameTable">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="game-title"><span>♠</span> BLACKJACK</div>
+    <div class="header-center">
+      <div class="balance-label">Chip Balance</div>
+      <div class="balance-value" id="balanceDisplay" role="status" aria-live="polite">$500</div>
+    </div>
+    <div class="header-icons">
+      <!-- History icon -->
+      <button class="icon-btn" onclick="openPanel('history')" aria-label="Betting History" title="Betting History">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </button>
+      <!-- Stats icon -->
+      <button class="icon-btn" onclick="openPanel('stats')" aria-label="Session Statistics" title="Statistics">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </button>
+      <!-- Help icon -->
+      <button class="icon-btn" onclick="openPanel('help')" aria-label="Rules Reference" title="Rules">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </button>
+      <!-- Settings icon -->
+      <button class="icon-btn" onclick="toggleH17()" aria-label="Toggle H17 Rule" title="Settings: Toggle H17" id="settingsBtn">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Dealer Area -->
+  <section class="dealer-area" id="dealerArea" aria-label="Dealer hand">
+    <div class="area-label">Dealer</div>
+    <div class="hand" id="dealerHand"></div>
+    <div class="hand-total-badge hidden" id="dealerTotal" role="status"></div>
+  </section>
+
+  <!-- Status Banner -->
+  <div class="status-banner" role="status" aria-live="polite">
+    <div class="status-text" id="statusText">Place your bet to begin.</div>
+  </div>
+
+  <!-- Bet Zone -->
+  <div class="bet-zone" id="betZone">
+    <div class="chip-stack-visual" id="chipStackVisual"></div>
+    <div class="bet-display">
+      <div class="bet-line">BET: <span id="betDisplay" aria-live="polite">$0</span></div>
+      <div class="bet-separator"></div>
+      <div class="balance-line">BALANCE: <span id="betZoneBalance">$500</span></div>
+    </div>
+  </div>
+
+  <!-- Player Area -->
+  <section class="player-area" id="playerArea" aria-label="Player hand">
+    <div class="area-label">You</div>
+    <div id="playerHandsContainer">
+      <div class="hand" id="playerHand"></div>
+    </div>
+    <div class="hand-total-badge hidden" id="playerTotal" role="status"></div>
+  </section>
+
+  <!-- Action Bar -->
+  <div class="action-bar" id="actionBar">
+
+    <!-- Betting Phase -->
+    <div id="bettingControls">
+      <div class="chip-row">
+        <button class="chip-btn chip-5" id="chip5" onclick="placeBet(5)" title="$5 chip" aria-label="Bet $5">$5</button>
+        <button class="chip-btn chip-10" id="chip10" onclick="placeBet(10)" title="$10 chip" aria-label="Bet $10">$10</button>
+        <button class="chip-btn chip-25" id="chip25" onclick="placeBet(25)" title="$25 chip" aria-label="Bet $25">$25</button>
+        <button class="chip-btn chip-50" id="chip50" onclick="placeBet(50)" title="$50 chip" aria-label="Bet $50">$50</button>
+      </div>
+      <div class="deal-row" style="margin-top:8px;">
+        <button class="btn btn-clear" id="clearBetBtn" onclick="clearBet()" disabled aria-label="Clear bet">Clear Bet</button>
+        <button class="btn btn-gold" id="dealBtn" onclick="deal()" disabled aria-label="Deal cards">Deal</button>
+      </div>
+    </div>
+
+    <!-- Player Turn Phase -->
+    <div id="playerControls" class="hidden">
+      <div class="btn-row">
+        <div class="tooltip-container">
+          <button class="btn" id="hitBtn" onclick="playerHit()" aria-label="Hit">Hit</button>
+        </div>
+        <div class="tooltip-container">
+          <button class="btn" id="standBtn" onclick="playerStand()" aria-label="Stand">Stand</button>
+        </div>
+        <div class="tooltip-container">
+          <button class="btn" id="doubleBtn" onclick="playerDouble()" aria-label="Double Down" aria-disabled="false">Double</button>
+          <span class="tooltip" id="doubleTip">Double your bet and receive exactly one more card.</span>
+        </div>
+        <div class="tooltip-container">
+          <button class="btn" id="splitBtn" onclick="playerSplit()" aria-label="Split" aria-disabled="false">Split</button>
+          <span class="tooltip" id="splitTip">Split matching cards into two hands.</span>
+        </div>
+        <div class="tooltip-container">
+          <button class="btn btn-danger" id="surrenderBtn" onclick="playerSurrender()" aria-label="Surrender" aria-disabled="false">Surrender</button>
+          <span class="tooltip" id="surrenderTip">Forfeit half your bet and end the round.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settlement Phase -->
+    <div id="settlementControls" class="hidden">
+      <button class="btn btn-gold" id="dealAgainBtn" onclick="dealAgain()" aria-label="Deal again">Deal Again</button>
+    </div>
+
+    <!-- Dealer Turn (status only) -->
+    <div id="dealerTurnStatus" class="hidden">
+      <div class="status-text" id="dealerStatusText">Dealer reveals<span class="status-dots"></span></div>
+    </div>
+
+  </div>
+</main>
+
+<script src="game.js"></script>
+</body>
+</html>
