@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloodstream Runner</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0109;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh; overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+    #c {
+      border: 2px solid #cc1133;
+      box-shadow: 0 0 40px rgba(220,20,60,.35), 0 0 80px rgba(220,20,60,.1);
+      display: block; max-width: 100%;
+    }
+    #sub { color: rgba(255,100,130,.4); margin-top: 8px; font-size: 11px; letter-spacing: 1px; }
+  </style>
+</head>
+<body>
+<canvas id="c" width="800" height="450"></canvas>
+<div id="sub">SPACE / CLICK — hold for higher jump</div>
+<script>
+// ── Setup ──────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = 800, H = 450;
+
+// ── Audio (Web Audio API, procedural) ─────────────────────────────────────────
+let _ac = null;
+const ac = () => _ac || (_ac = new (window.AudioContext || window.webkitAudioContext)());
+
+function tone(f, type, dur, vol, slide = 0) {
+  try {
+    const o = ac().createOscillator(), g = ac().createGain();
+    o.connect(g); g.connect(ac().destination);
+    o.type = type;
+    o.frequency.setValueAtTime(f, ac().currentTime);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, ac().currentTime + dur);
+    g.gain.setValueAtTime(vol, ac().currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac().currentTime + dur);
+    o.start(); o.stop(ac().currentTime + dur);
+  } catch (e) {}
+}
+function noise(dur, vol) {
+  try {
+    const buf = ac().createBuffer(1, ac().sampleRate * dur, ac().sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const s = ac().createBufferSource(), g = ac().createGain();
+    s.buffer = buf; s.connect(g); g.connect(ac().destination);
+    g.gain.setValueAtTime(vol, ac().currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac().currentTime + dur);
+    s.start();
+  } catch (e) {}
+}
+const SFX = {
+  jump:  () => { tone(300, 'sine', 0.1, 0.13, 500); },
+  land:  () => tone(110, 'sine', 0.07, 0.09),
+  death: () => { noise(0.3, 0.2); tone(85, 'sawtooth', 0.35, 0.1); },
+  chunk: () => { tone(440,'sine',0.15,0.1); setTimeout(()=>tone(660,'sine',0.22,0.1),190); },
+  win:   () => [523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,'sine',0.3,0.11),i*140)),
+};
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const GY   = 400;   // ground Y (top of ground surface)
+const PX   = 140;   // player fixed screen X
+const PR   = 17;    // player visual radius
+const HR   = 13;    // hitbox radius (tighter = forgiving)
+const GRAV = 0.54;
+const JV0  = -11.5; // initial jump velocity
+const JHOLD= -0.38; // hold boost per frame
+const JMAX = 17;    // max hold frames
+const SW   = 34;    // spike width
+const SH   = 34;    // spike height
+const CH   = 220;   // ceiling spike hitbox height (extends far down from ceiling)
+
+// ── Obstacle data helpers ─────────────────────────────────────────────────────
+// sf = spike floor, sc = spike ceiling, blk = cholesterol block, plt = moving platelet
+const sf  = (x, n=1) => Array.from({length:n}, (_,i) => ({t:'sf',  x:x+i*(SW+2), y:GY-SH, w:SW, h:SH}));
+const sc  = (x, n=1) => Array.from({length:n}, (_,i) => ({t:'sc',  x:x+i*(SW+2), y:0, w:SW, h:CH}));
+const blk = (x, h, w=44) => [{t:'blk', x, y:GY-h, w, h}];
+const plt = (x, min, max, spd, ph=0) => [{t:'plt', x, cy:(min+max)/2, w:50, h:22, min, max, spd, ph}];
+
+// ── Boss encounter generator ──────────────────────────────────────────────────
+function generateBoss(ch) {
+  const z = Math.floor(ch.len * 0.56), out = [];
+  const n = 2 + Math.floor(Math.random() * 2); // 2–3 random extras
+  for (let i = 0; i < n; i++) {
+    const x = z + 200 + i * (175 + Math.floor(Math.random() * 100));
+    const r = Math.random();
+    if      (r < 0.30) out.push(...sf(x, 1 + Math.floor(Math.random()*2)));
+    else if (r < 0.55) out.push(...blk(x, 50 + Math.floor(Math.random()*55)));
+    else if (r < 0.78) out.push(...plt(x, 200+Math.floor(Math.random()*90), 310+Math.floor(Math.random()*70), 2.5+Math.random()*1.8));
+    else               out.push(...sc(x, 1));
+  }
+  return out;
+}
+
+// ── Chunk definitions ─────────────────────────────────────────────────────────
+const CHUNKS = [
+  {
+    id:1, name:'First Response', env:'vein',
+    spd:3.2, len:3300,
+    bg:['#150205','#250610','#0d0102'],
+    wc:'rgba(160,30,55,0.12)', gc:'#4a0e1c',
+    obs:[
+      ...sf(480),
+      ...sf(720,2),
+      ...sf(980),
+      ...sf(1210,3),
+      ...sf(1500),
+      ...sf(1730,2),
+      ...sf(1980),
+      ...sf(2200,3),
+      ...sf(2480),
+      ...sf(2710,2),
+      ...sf(2950),
+      ...sf(3100,3),
+    ],
+  },
+  {
+    id:2, name:'Red River', env:'artery',
+    spd:3.8, len:3700,
+    bg:['#1e0505','#330909','#110202'],
+    wc:'rgba(200,55,35,0.11)', gc:'#5a1010',
+    obs:[
+      ...blk(420, 62),
+      ...blk(650, 85),
+      ...sf(800),
+      ...blk(960, 52, 60), ...blk(1030, 78),
+      ...sf(1220, 2),
+      ...blk(1440, 92),
+      ...plt(1600, 255, 345, 2.0, 0),
+      ...blk(1790, 68),
+      ...sf(1940),
+      ...plt(2100, 245, 355, 2.4, 1.3),
+      ...blk(2280, 82), ...blk(2355, 58),
+      ...sf(2540, 2),
+      ...plt(2720, 238, 362, 2.8, 0.6),
+      ...blk(2920, 95),
+      ...sf(3080),
+      ...plt(3220, 255, 345, 3.1, 2.1),
+      ...blk(3320, 72),
+      ...sf(3520, 3),
+    ],
+  },
+  {
+    id:3, name:'Narrow Passage', env:'capillary',
+    spd:3.0, len:4000,
+    bg:['#070e18','#0e1c2e','#040a12'],
+    wc:'rgba(70,130,200,0.09)', gc:'#0e1e3a',
+    obs:[
+      ...sf(420),
+      ...sc(580),
+      ...sf(760), ...sc(760),
+      ...sf(970, 2),
+      ...sc(1160, 2),
+      ...sf(1370), ...sc(1370),
+      ...sc(1560, 2),
+      ...sf(1750, 2),
+      ...sc(1920), ...sf(1920),
+      ...sf(2120, 2), ...sc(2120+SW+2),
+      ...sc(2350, 2),
+      ...sf(2560, 3),
+      ...sc(2740), ...sf(2740),
+      ...sf(2960, 2), ...sc(2960, 2),
+      ...sc(3160, 2),
+      ...sf(3360), ...sc(3360),
+      ...sf(3580, 3), ...sc(3580),
+      ...sc(3770, 2), ...sf(3770),
+    ],
+  },
+];
+
+// ── Game state ────────────────────────────────────────────────────────────────
+// gs: 'menu' | 'playing' | 'dead' | 'cwon' | 'won'
+let gs = 'menu';
+let ci = 0;                    // chunk index
+let worldX = 0;
+let chunkAttempts = [0,0,0];
+let totalAttempts = 0;
+let gameTime = 0;
+let deathTimer = 0, cwonTimer = 0, deathProg = 0;
+let bossObs = [];
+const DPAUSE = 95, CWPAUSE = 100;
+
+// ── Player ────────────────────────────────────────────────────────────────────
+let P = {};
+function resetPlayer() {
+  P = { y:GY-PR, vy:0, onGround:true, jumping:false, holdF:0,
+        wobble:0, sx:1, sy:1, wasGround:true, trail:[] };
+}
+
+// ── Parallax objects ──────────────────────────────────────────────────────────
+let tissue=[], rbcs=[], fibers=[];
+function buildParallax() {
+  tissue = Array.from({length:9},  () => ({x:Math.random()*W*5, y:40+Math.random()*(GY-100), r:45+Math.random()*65, ph:Math.random()*Math.PI*2}));
+  rbcs   = Array.from({length:15}, () => ({x:Math.random()*W*4, y:50+Math.random()*(GY-120), rx:11+Math.random()*9, ry:7+Math.random()*5, spd:0.28+Math.random()*0.5, ph:Math.random()*Math.PI*2}));
+  fibers = Array.from({length:12}, () => ({x:Math.random()*W*3, y:20+Math.random()*(GY-60), len:70+Math.random()*130, ang:Math.random()*Math.PI, spd:0.55+Math.random()*0.4}));
+}
+
+// ── Screen shake ──────────────────────────────────────────────────────────────
+let shX=0, shY=0, shM=0;
+function shake(m) { shM = m; }
+function updateShake() {
+  if (shM > 0.3) { shX=(Math.random()-.5)*shM; shY=(Math.random()-.5)*shM; shM*=0.78; }
+  else { shX=shY=shM=0; }
+}
+
+// ── Particles ─────────────────────────────────────────────────────────────────
+let parts = [];
+function burst(x, y) {
+  for (let i = 0; i < 30; i++) {
+    const a = Math.PI*2*i/30 + Math.random()*.3, s = 2.5+Math.random()*5.5;
+    parts.push({x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s-2, life:1, decay:.022+Math.random()*.018, r:2+Math.random()*5, hue:210+Math.random()*40});
+  }
+}
+function spawnPlasma(ch) {
+  if (Math.random() > .26) return;
+  const hue = ch.env==='capillary' ? 205 : ch.env==='artery' ? 8 : 340;
+  parts.push({x:Math.random()*W, y:20+Math.random()*(GY-50), vx:-ch.spd*.2, vy:-.15+Math.random()*.1, life:1, decay:.007+Math.random()*.007, r:1+Math.random()*2, hue, plasma:true});
+}
+function tickParts() {
+  for (const p of parts) { p.x+=p.vx; p.y+=p.vy; if(!p.plasma) p.vy+=.12; p.life-=p.decay; }
+  for (let i=parts.length-1;i>=0;i--) if(parts[i].life<=0) parts.splice(i,1);
+}
+
+// ── localStorage ──────────────────────────────────────────────────────────────
+const LS = {
+  save: (k,v) => { try { localStorage.setItem(k,v); } catch(e){} },
+  get:  (k)   => { try { const v=parseInt(localStorage.getItem(k)); return isNaN(v)?null:v; } catch(e){return null;} },
+};
+function saveBests() {
+  const prev = LS.get('br_best');
+  if (prev === null || totalAttempts < prev) LS.save('br_best', totalAttempts);
+  chunkAttempts.forEach((a,i)=>{ const p=LS.get(`br_c${i}`); if(p===null||a<p) LS.save(`br_c${i}`,a); });
+}
+
+// ── Init / reset ──────────────────────────────────────────────────────────────
+function initGame() {
+  ci=0; chunkAttempts=[0,0,0]; totalAttempts=0;
+  worldX=0; parts=[]; gameTime=0;
+  resetPlayer(); buildParallax(); bossObs=generateBoss(CHUNKS[0]);
+}
+function restartChunk() {
+  chunkAttempts[ci]++; totalAttempts++;
+  worldX=0; parts=[]; bossObs=generateBoss(CHUNKS[ci]); resetPlayer(); gs='playing';
+}
+function advanceChunk() {
+  const prev = LS.get(`br_c${ci}`);
+  if (prev===null || chunkAttempts[ci]<prev) LS.save(`br_c${ci}`, chunkAttempts[ci]);
+  ci++;
+  if (ci >= CHUNKS.length) { saveBests(); gs='won'; SFX.win(); }
+  else { worldX=0; parts=[]; bossObs=generateBoss(CHUNKS[ci]); resetPlayer(); gs='cwon'; cwonTimer=0; SFX.chunk(); }
+}
+
+// ── Input ─────────────────────────────────────────────────────────────────────
+let held = false;
+function pressJump() {
+  if (gs==='menu')           { gs='playing'; return; }
+  if (gs==='dead'||gs==='cwon'||gs==='won') return;
+  if (P.onGround) {
+    P.vy=JV0; P.onGround=false; P.jumping=true; P.holdF=0;
+    P.sx=0.72; P.sy=1.38; SFX.jump();
+  }
+}
+function pressAction() {
+  if (gs==='won') { initGame(); gs='menu'; }
+  else if (gs==='dead' && deathTimer >= 22) { restartChunk(); }
+  else if (gs==='menu' || gs==='playing') pressJump();
+}
+window.addEventListener('keydown', e => { if(e.code==='Space'){e.preventDefault(); held=true; pressAction();} });
+window.addEventListener('keyup',   e => { if(e.code==='Space'){held=false; if(P) P.jumping=false;} });
+canvas.addEventListener('mousedown',  () => { held=true;  pressAction(); });
+canvas.addEventListener('mouseup',    () => { held=false; if(P) P.jumping=false; });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); held=true; pressAction(); }, {passive:false});
+canvas.addEventListener('touchend',   () => { held=false; if(P) P.jumping=false; });
+
+// ── Update ────────────────────────────────────────────────────────────────────
+function update() {
+  updateShake();
+  if (gs === 'dead') { deathTimer++; tickParts(); if(deathTimer>=DPAUSE) restartChunk(); return; }
+  if (gs === 'cwon') { cwonTimer++; if(cwonTimer>=CWPAUSE) { gs='playing'; cwonTimer=0; } return; }
+  if (gs !== 'playing') return;
+
+  const ch = CHUNKS[ci];
+  worldX += ch.spd;
+  gameTime++;
+  if (worldX >= ch.len) { advanceChunk(); return; }
+
+  // Jump hold boost
+  if (P.jumping && held && P.holdF < JMAX) { P.vy += JHOLD; P.holdF++; }
+
+  // Physics
+  P.vy += GRAV;
+  P.y  += P.vy;
+  P.wobble += 0.11;
+
+  // Squash/stretch lerp back to 1
+  P.sx += (1 - P.sx) * 0.23;
+  P.sy += (1 - P.sy) * 0.23;
+
+  // Ground
+  P.wasGround = P.onGround;
+  if (P.y >= GY - PR) {
+    P.y = GY - PR; P.vy = 0;
+    if (!P.wasGround) { P.sx = 1.42; P.sy = 0.65; SFX.land(); }
+    P.onGround = true; P.jumping = false;
+  } else { P.onGround = false; }
+
+  // Ceiling bounce
+  if (P.y - PR < 0) { P.y = PR; P.vy = Math.abs(P.vy) * 0.3; }
+
+  // Trail
+  P.trail.unshift({x:PX, y:P.y, life:1});
+  if (P.trail.length > 10) P.trail.pop();
+  for (const t of P.trail) t.life -= 0.09;
+
+  // Update moving platelets (static + boss)
+  for (const ob of [...ch.obs, ...bossObs]) {
+    if (ob.t === 'plt') {
+      ob.cy = (ob.min+ob.max)/2 + Math.sin(gameTime*0.05*ob.spd + ob.ph) * ((ob.max-ob.min)/2);
+    }
+  }
+
+  // Collision: circle vs AABB (static + boss obstacles)
+  for (const ob of [...ch.obs, ...bossObs]) {
+    const sx = ob.x - worldX;
+    if (sx > W+80 || sx+ob.w < -80) continue;
+    const obY = ob.t==='plt' ? ob.cy - ob.h/2 : ob.y;
+    const nearX = Math.max(sx, Math.min(PX, sx+ob.w));
+    const nearY = Math.max(obY, Math.min(P.y, obY+ob.h));
+    const dx = PX-nearX, dy = P.y-nearY;
+    if (dx*dx + dy*dy < HR*HR) {
+      burst(PX, P.y); SFX.death(); shake(14);
+      deathProg = worldX / ch.len;
+      gs = 'dead'; deathTimer = 0; return;
+    }
+  }
+
+  spawnPlasma(ch);
+  tickParts();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render(t) {
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(shX, shY);
+
+  const ch = CHUNKS[Math.min(ci, CHUNKS.length-1)];
+  drawBG(ch, t);
+  drawTissue(ch, t);   // parallax layer 1 — deep tissue
+  drawRBCs(ch, t);     // parallax layer 2 — red blood cells
+  drawFibers(ch, t);   // parallax layer 3 — fibrin strands
+  drawGround(ch);
+  drawObstacles(ch);
+  if (gs==='playing'||gs==='dead') drawPlayer();
+  drawParticles();
+
+  ctx.restore();
+
+  // HUD drawn outside shake so it stays stable
+  drawHUD(ch);
+  if (gs === 'dead')  drawGameOver(t);
+  if (gs === 'menu')  drawMenu(t);
+  if (gs === 'cwon')  drawCheckpoint(ch, t);
+  if (gs === 'won')   drawWin(t);
+}
+
+// ── Background ────────────────────────────────────────────────────────────────
+function drawBG(ch, t) {
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, ch.bg[0]); g.addColorStop(.5, ch.bg[1]); g.addColorStop(1, ch.bg[2]);
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  // Vein-wall ripple lines
+  ctx.strokeStyle = ch.wc; ctx.lineWidth = 1;
+  for (let i=0;i<5;i++) {
+    const w = Math.sin(t*.0006+i*.9)*4;
+    ctx.beginPath(); ctx.moveTo(0,14+i*10+w); ctx.lineTo(W,14+i*10+Math.sin(t*.0004+i)*3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,H-14-i*10+w); ctx.lineTo(W,H-14-i*10+Math.sin(t*.0004+i+2)*3); ctx.stroke();
+  }
+}
+
+// ── Parallax Layer 1 — Deep tissue blobs ──────────────────────────────────────
+function drawTissue(ch, t) {
+  const spread = W*5;
+  const col = ch.env==='capillary' ? '#203060' : ch.env==='artery' ? '#5a1515' : '#3a1028';
+  for (const ts of tissue) {
+    const raw = ts.x - worldX*0.07;
+    const sx  = ((raw%spread)+spread)%spread - W*.25;
+    const sy  = ts.y + Math.sin(t*.0004+ts.ph)*14;
+    ctx.save(); ctx.globalAlpha = 0.065;
+    ctx.beginPath(); ctx.arc(sx,sy,ts.r,0,Math.PI*2);
+    ctx.fillStyle = col; ctx.fill(); ctx.restore();
+  }
+}
+
+// ── Parallax Layer 2 — Red blood cells ────────────────────────────────────────
+function drawRBCs(ch, t) {
+  const spread = W*4;
+  const col = ch.env==='capillary' ? '#2255aa' : ch.env==='artery' ? '#cc2020' : '#bb1e3a';
+  for (const rbc of rbcs) {
+    const raw = rbc.x - worldX*rbc.spd*0.28;
+    const sx  = ((raw%spread)+spread)%spread - W*.2;
+    const sy  = rbc.y + Math.sin(t*.001+rbc.ph)*7;
+    ctx.save(); ctx.globalAlpha = 0.21;
+    ctx.beginPath(); ctx.ellipse(sx,sy,rbc.rx,rbc.ry,0,0,Math.PI*2);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(sx,sy,rbc.rx*.42,rbc.ry*.38,0,0,Math.PI*2);
+    ctx.fillStyle = ch.bg[0]; ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ── Parallax Layer 3 — Fibrin strands (fast) ──────────────────────────────────
+function drawFibers(ch, t) {
+  const spread = W*3;
+  const col = ch.env==='capillary' ? 'rgba(70,130,215,0.11)' : ch.env==='artery' ? 'rgba(215,55,35,0.09)' : 'rgba(175,35,65,0.09)';
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+  for (const f of fibers) {
+    const raw = f.x - worldX*f.spd*0.62;
+    const sx  = ((raw%spread)+spread)%spread - W*.1;
+    const sy  = f.y + Math.sin(t*.0008+f.ang)*10;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + Math.cos(f.ang)*f.len, sy + Math.sin(f.ang)*f.len*.25);
+    ctx.stroke();
+  }
+}
+
+// ── Ground ────────────────────────────────────────────────────────────────────
+function drawGround(ch) {
+  const g = ctx.createLinearGradient(0,GY,0,H);
+  g.addColorStop(0, ch.gc); g.addColorStop(1, ch.bg[2]);
+  ctx.fillStyle = g; ctx.fillRect(0,GY,W,H-GY);
+  const lineCol = ch.env==='capillary' ? 'rgba(70,130,220,0.4)' : ch.env==='artery' ? 'rgba(255,75,55,0.4)' : 'rgba(255,65,95,0.45)';
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0,GY); ctx.lineTo(W,GY); ctx.stroke();
+}
+
+// ── Obstacles ─────────────────────────────────────────────────────────────────
+function envColors(ch) {
+  if (ch.env==='capillary') return {fill:'#1a3a8c', stroke:'rgba(80,145,255,0.65)', glow:'#4488ff', ceil:'rgba(40,90,180,0.6)'};
+  if (ch.env==='artery')    return {fill:'#882200', stroke:'rgba(255,110,55,0.65)', glow:'#ff8844', ceil:'rgba(160,50,20,0.5)'};
+  return                           {fill:'#1a8a38', stroke:'rgba(55,255,95,0.65)', glow:'#33ff66', ceil:'rgba(30,120,50,0.5)'};
+}
+
+function drawSpikeFloor(sx, ob, col) {
+  const hw = ob.w/2;
+  ctx.fillStyle = col.fill; ctx.strokeStyle = col.stroke; ctx.lineWidth = 1;
+  // Left spike triangle
+  ctx.beginPath(); ctx.moveTo(sx,ob.y+ob.h); ctx.lineTo(sx+hw*.5,ob.y); ctx.lineTo(sx+hw,ob.y+ob.h); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // Right spike triangle
+  ctx.beginPath(); ctx.moveTo(sx+hw,ob.y+ob.h); ctx.lineTo(sx+hw+hw*.5,ob.y+8); ctx.lineTo(sx+ob.w,ob.y+ob.h); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.shadowColor=col.glow; ctx.shadowBlur=10; ctx.strokeStyle=col.stroke; ctx.strokeRect(sx,ob.y,ob.w,ob.h); ctx.restore();
+}
+
+function drawSpikeCeil(sx, ob, col) {
+  // Draw ceiling band + downward-pointing spike tip at bottom of ob.h
+  const tipY = ob.y + ob.h; // where the tip hangs down to
+  const bandH = ob.h - SH;  // the solid ceiling band height
+  // Ceiling wall band
+  const bg = ctx.createLinearGradient(0,0,0,bandH);
+  bg.addColorStop(0, col.ceil); bg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = bg; ctx.fillRect(sx, 0, ob.w, bandH);
+  // Spike tip (inverted triangle pointing DOWN)
+  const hw = ob.w/2;
+  ctx.fillStyle = col.fill; ctx.strokeStyle = col.stroke; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sx,bandH); ctx.lineTo(sx+hw*.5,tipY); ctx.lineTo(sx+hw,bandH); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx+hw,bandH); ctx.lineTo(sx+hw+hw*.5,tipY-8); ctx.lineTo(sx+ob.w,bandH); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.shadowColor=col.glow; ctx.shadowBlur=12; ctx.fill(); ctx.restore();
+}
+
+function drawBlock(sx, ob) {
+  // Cholesterol deposit — waxy yellow-gold
+  const g = ctx.createLinearGradient(sx,ob.y,sx+ob.w,ob.y+ob.h);
+  g.addColorStop(0,'#b8860b'); g.addColorStop(1,'#7a5800');
+  ctx.fillStyle = g; ctx.fillRect(sx,ob.y,ob.w,ob.h);
+  ctx.strokeStyle = 'rgba(255,210,55,0.5)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(sx,ob.y,ob.w,ob.h);
+  // Waxy highlight
+  ctx.fillStyle = 'rgba(255,240,100,0.12)'; ctx.fillRect(sx+3,ob.y+3,ob.w*.45,ob.h*.5);
+  ctx.save(); ctx.shadowColor='#ffcc00'; ctx.shadowBlur=9; ctx.strokeStyle='rgba(255,200,40,0.4)'; ctx.strokeRect(sx,ob.y,ob.w,ob.h); ctx.restore();
+}
+
+function drawPlatelet(sx, ob) {
+  const cy = ob.cy, rx = ob.w/2, ry = ob.h/2;
+  const g = ctx.createRadialGradient(sx+rx,cy,2,sx+rx,cy,rx);
+  g.addColorStop(0,'#ffaac8'); g.addColorStop(1,'#cc2266');
+  ctx.save(); ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(sx+rx,cy,rx,ry,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(255,155,195,0.6)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.shadowColor='#ff88bb'; ctx.shadowBlur=10; ctx.stroke();
+  ctx.restore();
+}
+
+function drawOneOb(ob, col) {
+  const sx = ob.x - worldX;
+  if (sx > W+80 || sx+ob.w < -80) return;
+  if      (ob.t==='sf')  drawSpikeFloor(sx, ob, col);
+  else if (ob.t==='sc')  drawSpikeCeil(sx, ob, col);
+  else if (ob.t==='blk') drawBlock(sx, ob);
+  else if (ob.t==='plt') drawPlatelet(sx, ob);
+}
+function drawObstacles(ch) {
+  const col = envColors(ch);
+  for (const ob of ch.obs)  drawOneOb(ob, col);
+  // Boss obstacles — draw with a faint red warning tint
+  ctx.save(); ctx.shadowColor='#ff2200'; ctx.shadowBlur=18;
+  for (const ob of bossObs) drawOneOb(ob, col);
+  ctx.restore();
+}
+
+// ── Player ────────────────────────────────────────────────────────────────────
+function drawPlayer() {
+  const x = PX, y = P.y;
+
+  // Trail
+  for (let i=P.trail.length-1;i>=0;i--) {
+    const tr = P.trail[i];
+    ctx.save(); ctx.globalAlpha = tr.life*.24;
+    ctx.beginPath(); ctx.arc(tr.x-(P.trail.length-i)*2.2, tr.y, PR*.65, 0, Math.PI*2);
+    ctx.fillStyle='rgba(175,215,255,0.85)'; ctx.fill(); ctx.restore();
+  }
+
+  // Outer glow
+  const glow = ctx.createRadialGradient(x,y,1,x,y,PR*2.8);
+  glow.addColorStop(0,'rgba(175,210,255,0.28)'); glow.addColorStop(1,'rgba(175,210,255,0)');
+  ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(x,y,PR*2.8,0,Math.PI*2); ctx.fill();
+
+  // Body with squash/stretch + wobble
+  const wob = Math.sin(P.wobble) * (P.onGround ? 0.05 : 0.02);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(P.sx*(1+wob), P.sy*(1-wob));
+  const cg = ctx.createRadialGradient(-5,-5,2,0,0,PR);
+  cg.addColorStop(0,'#ffffff'); cg.addColorStop(.55,'#ddeeff'); cg.addColorStop(1,'#99bbdd');
+  ctx.beginPath(); ctx.arc(0,0,PR,0,Math.PI*2);
+  ctx.fillStyle=cg; ctx.shadowColor='#77aaff'; ctx.shadowBlur=16; ctx.fill();
+  // Nucleus dot
+  ctx.beginPath(); ctx.arc(2,2,PR*.28,0,Math.PI*2);
+  ctx.fillStyle='rgba(100,158,212,0.5)'; ctx.fill();
+  ctx.restore();
+}
+
+// ── Particles ─────────────────────────────────────────────────────────────────
+function drawParticles() {
+  for (const p of parts) {
+    ctx.save(); ctx.globalAlpha = p.life*(p.plasma?.5:1);
+    ctx.fillStyle=`hsl(${p.hue},75%,62%)`;
+    ctx.shadowColor=`hsl(${p.hue},80%,70%)`; ctx.shadowBlur=p.plasma?4:11;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function drawHUD(ch) {
+  if (gs==='menu') return;
+
+  // Chunk dots (bottom center)
+  for (let i=0;i<CHUNKS.length;i++) {
+    const dx = W/2 + (i - (CHUNKS.length-1)/2)*22;
+    ctx.beginPath(); ctx.arc(dx, H-12, 4, 0, Math.PI*2);
+    ctx.fillStyle = i<ci ? '#ff3355' : i===ci ? 'rgba(255,110,140,0.9)' : 'rgba(255,100,130,0.2)';
+    ctx.fill();
+    if (i===ci) {
+      ctx.strokeStyle='rgba(255,150,170,0.5)'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  }
+
+  // Attempt counter (top left)
+  ctx.textAlign='left'; ctx.font='bold 13px Courier New';
+  ctx.fillStyle='rgba(255,110,140,0.85)';
+  ctx.fillText(`Attempt  ${chunkAttempts[ci]+1}`, 14, 20);
+
+  // Best for this chunk
+  const best = LS.get(`br_c${ci}`);
+  if (best !== null) {
+    ctx.font='11px Courier New'; ctx.fillStyle='rgba(255,190,90,0.65)';
+    ctx.fillText(`Best: ${best}`, 14, 35);
+  }
+
+  // Chunk name (top right)
+  ctx.textAlign='right'; ctx.font='bold 12px Courier New';
+  ctx.fillStyle='rgba(255,120,150,0.7)';
+  ctx.fillText(`${ci+1}/${CHUNKS.length}  ${ch.name}`, W-14, 20);
+
+  // Progress bar
+  const prog = Math.min(worldX/ch.len, 1);
+  const by = best!==null ? 42 : 30;
+  ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(14, by, W-28, 5);
+  if (prog > 0) {
+    const pg = ctx.createLinearGradient(14,0,14+(W-28)*prog,0);
+    pg.addColorStop(0,'#cc1133'); pg.addColorStop(.65,'#ff3355'); pg.addColorStop(1,'#ff8899');
+    ctx.fillStyle=pg; ctx.fillRect(14, by, (W-28)*prog, 5);
+  }
+  ctx.textAlign='right'; ctx.font='11px Courier New'; ctx.fillStyle='rgba(255,120,150,0.6)';
+  ctx.fillText(`${Math.floor(prog*100)}%`, W-14, by-3);
+
+  // Boss warning when approaching boss zone (~56–72% of chunk)
+  if (gs==='playing' && prog >= 0.50 && prog < 0.72) {
+    const pulse = 0.5 + Math.abs(Math.sin(Date.now()*0.006)) * 0.5;
+    ctx.save(); ctx.globalAlpha = pulse;
+    ctx.fillStyle='rgba(255,60,20,0.85)'; ctx.font='bold 12px Courier New';
+    ctx.textAlign='center';
+    ctx.fillText('⚠  PATHOGEN SURGE AHEAD  ⚠', W/2, H-28);
+    ctx.restore();
+  }
+}
+
+// ── Overlays ──────────────────────────────────────────────────────────────────
+function overlay(a) { ctx.fillStyle=`rgba(0,0,0,${a})`; ctx.fillRect(0,0,W,H); }
+
+function drawGameOver(t) {
+  // First 22 frames: red flash + white pop
+  if (deathTimer < 22) {
+    const a = Math.max(0, 1-deathTimer/22);
+    ctx.fillStyle=`rgba(255,12,38,${a*.55})`; ctx.fillRect(0,0,W,H);
+    if (deathTimer < 9) { ctx.fillStyle=`rgba(255,255,255,${(1-deathTimer/9)*.18})`; ctx.fillRect(0,0,W,H); }
+    return;
+  }
+  // Frames 22+: Game Over screen
+  overlay(0.72);
+  ctx.save(); ctx.textAlign='center';
+  ctx.shadowColor='#ff1122'; ctx.shadowBlur=22;
+  ctx.fillStyle='#ff3344'; ctx.font='bold 36px Courier New';
+  ctx.fillText('GAME  OVER', W/2, H/2-50);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(255,130,148,0.9)'; ctx.font='14px Courier New';
+  const pct = Math.floor(deathProg*100);
+  ctx.fillText(`Reached  ${pct}%  of  "${CHUNKS[ci] ? CHUNKS[ci].name : CHUNKS[ci-1].name}"`, W/2, H/2-12);
+  ctx.fillStyle='rgba(200,110,130,0.65)'; ctx.font='12px Courier New';
+  ctx.fillText(`Attempt  ${chunkAttempts[ci]+1}  ·  Stage  ${ci+1} / ${CHUNKS.length}`, W/2, H/2+10);
+  // Progress bar
+  const bw=300, bx=W/2-150, pby=H/2+26;
+  ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(bx, pby, bw, 7);
+  if (deathProg > 0) {
+    const pg=ctx.createLinearGradient(bx,0,bx+bw,0);
+    pg.addColorStop(0,'#881122'); pg.addColorStop(deathProg,'#ff3355'); pg.addColorStop(1,'rgba(255,80,100,0.1)');
+    ctx.fillStyle=pg; ctx.fillRect(bx, pby, bw*deathProg, 7);
+  }
+  ctx.fillStyle='rgba(255,140,160,0.55)'; ctx.font='10px Courier New';
+  ctx.textAlign='left'; ctx.fillText(`${pct}%`, bx+bw*deathProg+4, pby+6);
+  // Prompt (pulsing)
+  ctx.textAlign='center';
+  const pulse = 0.5+Math.sin(t*.007)*0.5;
+  ctx.globalAlpha=pulse; ctx.fillStyle='rgba(255,175,185,.9)'; ctx.font='12px Courier New';
+  ctx.fillText('SPACE / CLICK  to  try  again', W/2, H/2+66);
+  ctx.restore();
+}
+
+function drawMenu(t) {
+  overlay(.63);
+  ctx.save(); ctx.textAlign='center';
+  // Title
+  ctx.shadowColor='#ff1133'; ctx.shadowBlur=26;
+  ctx.fillStyle='#ff3355'; ctx.font='bold 40px Courier New';
+  ctx.fillText('BLOODSTREAM RUNNER', W/2, H/2-52);
+  ctx.shadowBlur=0;
+  // Subtitle
+  ctx.fillStyle='#ffaabb'; ctx.font='14px Courier New';
+  ctx.fillText('Navigate the vein.  Dodge the bacteria.', W/2, H/2-10);
+  ctx.fillStyle='rgba(255,190,200,.5)'; ctx.font='12px Courier New';
+  ctx.fillText('3 STAGES  ·  Vein  →  Artery  →  Capillary', W/2, H/2+12);
+  // Best
+  const best = LS.get('br_best');
+  if (best) { ctx.fillStyle='rgba(255,205,80,.75)'; ctx.font='12px Courier New'; ctx.fillText(`All-time best: ${best} total attempts`, W/2, H/2+36); }
+  // Controls
+  ctx.fillStyle='rgba(200,230,255,.35)'; ctx.font='11px Courier New';
+  ctx.fillText('SPACE / CLICK to jump  ·  hold for higher', W/2, H/2+56);
+  // Prompt
+  ctx.globalAlpha = .55+Math.sin(t*.004)*.45;
+  ctx.fillStyle='rgba(255,200,205,.9)'; ctx.font='13px Courier New';
+  ctx.fillText('PRESS  SPACE  or  CLICK  to  begin', W/2, H/2+80);
+  ctx.restore();
+}
+
+function drawCheckpoint(ch, t) {
+  overlay(.52);
+  ctx.save(); ctx.textAlign='center';
+  ctx.shadowColor='#44ff88'; ctx.shadowBlur=22;
+  ctx.fillStyle='#44ffaa'; ctx.font='bold 30px Courier New';
+  ctx.fillText('CHECKPOINT!', W/2, H/2-36);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#aaffcc'; ctx.font='14px Courier New';
+  const prevAttempts = chunkAttempts[ci-1] ?? chunkAttempts[ci];
+  ctx.fillText(`${CHUNKS[ci-1].name} — cleared in ${prevAttempts} attempt${prevAttempts===1?'':'s'}`, W/2, H/2);
+  if (CHUNKS[ci]) {
+    ctx.fillStyle='rgba(200,255,220,.7)'; ctx.font='13px Courier New';
+    ctx.fillText(`Next: ${CHUNKS[ci].name}`, W/2, H/2+26);
+  }
+  const pulse = .4+Math.sin(t*.006)*.4;
+  ctx.globalAlpha=pulse; ctx.fillStyle='rgba(170,255,200,.8)'; ctx.font='12px Courier New';
+  ctx.fillText('continuing...', W/2, H/2+54);
+  ctx.restore();
+}
+
+function drawWin(t) {
+  overlay(.7);
+  ctx.save(); ctx.textAlign='center';
+  ctx.shadowColor='#44ffaa'; ctx.shadowBlur=30;
+  ctx.fillStyle='#55ffbb'; ctx.font='bold 36px Courier New';
+  ctx.fillText('MISSION COMPLETE', W/2, H/2-55);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#aaffcc'; ctx.font='15px Courier New';
+  ctx.fillText(`Total attempts: ${totalAttempts}`, W/2, H/2-12);
+  // Chunk breakdown
+  chunkAttempts.forEach((a,i) => {
+    ctx.fillStyle='rgba(170,255,200,.55)'; ctx.font='12px Courier New';
+    ctx.fillText(`${CHUNKS[i].name}: ${a} attempt${a===1?'':'s'}`, W/2, H/2+10+i*18);
+  });
+  // Best
+  const best = LS.get('br_best');
+  if (best===totalAttempts) { ctx.fillStyle='rgba(255,220,70,.9)'; ctx.font='14px Courier New'; ctx.fillText('★  NEW BEST  ★', W/2, H/2+68); }
+  else if (best)             { ctx.fillStyle='rgba(255,205,75,.65)'; ctx.font='12px Courier New'; ctx.fillText(`Personal best: ${best}`, W/2, H/2+68); }
+  ctx.globalAlpha=.55+Math.sin(t*.004)*.45;
+  ctx.fillStyle='rgba(175,255,208,.85)'; ctx.font='13px Courier New';
+  ctx.fillText('PRESS  SPACE  or  CLICK  to  play  again', W/2, H/2+94);
+  ctx.restore();
+}
+
+// ── Game Loop ─────────────────────────────────────────────────────────────────
+function loop(t) { update(); render(t); requestAnimationFrame(loop); }
+
+initGame();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
