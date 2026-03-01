@@ -254,6 +254,7 @@ function restartChunk() {
 function advanceChunk() {
   const prev = LS.get(`br_c${ci}`);
   if (prev===null || chunkAttempts[ci]<prev) LS.save(`br_c${ci}`, chunkAttempts[ci]);
+  LS.save(`br_c${ci}_pct`, 100); // chunk cleared = 100%
   ci++;
   if (ci >= CHUNKS.length) { saveBests(); gs='won'; SFX.win(); }
   else { worldX=0; parts=[]; bossObs=generateBoss(CHUNKS[ci]); resetPlayer(); gs='cwon'; cwonTimer=0; SFX.chunk(); }
@@ -274,7 +275,7 @@ function pressAction() {
   else if (gs==='dead' && deathTimer >= 22) { restartChunk(); }
   else if (gs==='menu' || gs==='playing') pressJump();
 }
-window.addEventListener('keydown', e => { if(e.code==='Space'){e.preventDefault(); held=true; pressAction();} });
+window.addEventListener('keydown', e => { if(e.code==='Space'){ e.preventDefault(); held=true; if(!e.repeat) pressAction(); } });
 window.addEventListener('keyup',   e => { if(e.code==='Space'){held=false; if(P) P.jumping=false;} });
 canvas.addEventListener('mousedown',  () => { held=true;  pressAction(); });
 canvas.addEventListener('mouseup',    () => { held=false; if(P) P.jumping=false; });
@@ -284,7 +285,7 @@ canvas.addEventListener('touchend',   () => { held=false; if(P) P.jumping=false;
 // ── Update ────────────────────────────────────────────────────────────────────
 function update() {
   updateShake();
-  if (gs === 'dead') { deathTimer++; tickParts(); if(deathTimer>=DPAUSE) restartChunk(); return; }
+  if (gs === 'dead') { deathTimer++; tickParts(); return; }
   if (gs === 'cwon') { cwonTimer++; if(cwonTimer>=CWPAUSE) { gs='playing'; cwonTimer=0; } return; }
   if (gs !== 'playing') return;
 
@@ -339,6 +340,9 @@ function update() {
     if (dx*dx + dy*dy < HR*HR) {
       burst(PX, P.y); SFX.death(); shake(14);
       deathProg = worldX / ch.len;
+      const _pct = Math.floor(deathProg * 100);
+      const _bp = LS.get(`br_c${ci}_pct`);
+      if (_bp === null || _pct > _bp) LS.save(`br_c${ci}_pct`, _pct);
       gs = 'dead'; deathTimer = 0; return;
     }
   }
@@ -579,11 +583,11 @@ function drawHUD(ch) {
   ctx.fillStyle='rgba(255,110,140,0.85)';
   ctx.fillText(`Attempt  ${chunkAttempts[ci]+1}`, 14, 20);
 
-  // Best for this chunk
-  const best = LS.get(`br_c${ci}`);
-  if (best !== null) {
+  // Best % reached for this chunk
+  const bestPct = LS.get(`br_c${ci}_pct`);
+  if (bestPct !== null) {
     ctx.font='11px Courier New'; ctx.fillStyle='rgba(255,190,90,0.65)';
-    ctx.fillText(`Best: ${best}`, 14, 35);
+    ctx.fillText(`Best: ${bestPct}%`, 14, 35);
   }
 
   // Chunk name (top right)
@@ -593,7 +597,7 @@ function drawHUD(ch) {
 
   // Progress bar
   const prog = Math.min(worldX/ch.len, 1);
-  const by = best!==null ? 42 : 30;
+  const by = bestPct!==null ? 42 : 30;
   ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(14, by, W-28, 5);
   if (prog > 0) {
     const pg = ctx.createLinearGradient(14,0,14+(W-28)*prog,0);
@@ -647,11 +651,19 @@ function drawGameOver(t) {
   }
   ctx.fillStyle='rgba(255,140,160,0.55)'; ctx.font='10px Courier New';
   ctx.textAlign='left'; ctx.fillText(`${pct}%`, bx+bw*deathProg+4, pby+6);
-  // Prompt (pulsing)
+  // Personal best % comparison
   ctx.textAlign='center';
+  const storedBest = LS.get(`br_c${ci}_pct`);
+  if (storedBest !== null) {
+    const isNewBest = pct >= storedBest;
+    ctx.fillStyle = isNewBest ? 'rgba(255,220,70,0.9)' : 'rgba(200,140,155,0.7)';
+    ctx.font='12px Courier New';
+    ctx.fillText(isNewBest ? `★ New best: ${pct}%` : `Personal best: ${storedBest}%`, W/2, H/2+52);
+  }
+  // Prompt (pulsing)
   const pulse = 0.5+Math.sin(t*.007)*0.5;
   ctx.globalAlpha=pulse; ctx.fillStyle='rgba(255,175,185,.9)'; ctx.font='12px Courier New';
-  ctx.fillText('SPACE / CLICK  to  try  again', W/2, H/2+66);
+  ctx.fillText('SPACE / CLICK  to  try  again', W/2, H/2+76);
   ctx.restore();
 }
 
