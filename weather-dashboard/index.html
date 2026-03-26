@@ -28,6 +28,7 @@
       min-height: 100vh;
       color: var(--text);
       line-height: 1.5;
+      transition: background 1s ease;
     }
 
     .app {
@@ -421,6 +422,7 @@
         : err.message;
       showError(msg);
       forecastDays = null;
+      setBackground('default', false);
       setMainArea(`
         <div class="empty-state">
           <p class="big-icon" aria-hidden="true">🌤</p>
@@ -436,6 +438,7 @@
   function renderCard(d) {
     const cond = d.weather[0];
     const iconUrl = `https://openweathermap.org/img/wn/${cond.icon}@2x.png`;
+    setBackground(cond.main, cond.icon.endsWith('n'));
 
     setMainArea(`
       <article class="weather-card" aria-label="Weather for ${esc(d.name)}, ${esc(d.sys.country)}">
@@ -470,6 +473,40 @@
         <span class="detail-label">${label}</span>
         <span class="detail-value">${value}</span>
       </div>`;
+  }
+
+  // ── Dynamic background ───────────────────────────────────
+  const THEMES = {
+    thunderstorm:  { start: '#0a0a1a', end: '#1f1535', accent: '#a78bfa' },
+    drizzle:       { start: '#1a2a3a', end: '#2d4a6a', accent: '#7dd3fc' },
+    rain:          { start: '#0f2027', end: '#2c5364', accent: '#60a5fa' },
+    snow:          { start: '#1a3050', end: '#5b9abf', accent: '#bae6fd' },
+    atmosphere:    { start: '#2d3236', end: '#5a6473', accent: '#d1d5db' },
+    clear_day:     { start: '#0c4a6e', end: '#d97706', accent: '#fbbf24' },
+    clear_night:   { start: '#0f0c29', end: '#1e1b4b', accent: '#818cf8' },
+    clouds_day:    { start: '#1e293b', end: '#475569', accent: '#94a3b8' },
+    clouds_night:  { start: '#0f172a', end: '#1f2937', accent: '#6b7280' },
+    default:       { start: '#0f172a', end: '#1e3a5f', accent: '#38bdf8' },
+  };
+
+  const ATMOSPHERE = new Set(['mist','smoke','haze','dust','fog','sand','ash','squall','tornado']);
+
+  function getTheme(condition, isNight) {
+    const c = condition.toLowerCase();
+    if (c === 'thunderstorm') return THEMES.thunderstorm;
+    if (c === 'drizzle')      return THEMES.drizzle;
+    if (c === 'rain')         return THEMES.rain;
+    if (c === 'snow')         return THEMES.snow;
+    if (ATMOSPHERE.has(c))    return THEMES.atmosphere;
+    if (c === 'clear')        return isNight ? THEMES.clear_night  : THEMES.clear_day;
+    if (c === 'clouds')       return isNight ? THEMES.clouds_night : THEMES.clouds_day;
+    return THEMES.default;
+  }
+
+  function setBackground(condition, isNight) {
+    const t = getTheme(condition, isNight);
+    document.body.style.background = `linear-gradient(135deg, ${t.start} 0%, ${t.end} 100%)`;
+    document.documentElement.style.setProperty('--accent', t.accent);
   }
 
   // ── Forecast ─────────────────────────────────────────────
