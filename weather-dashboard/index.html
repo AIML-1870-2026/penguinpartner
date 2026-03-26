@@ -245,6 +245,52 @@
 
     .detail-value { font-size: 1rem; font-weight: 600; }
 
+    /* Forecast strip */
+    .forecast-section {
+      margin-top: 1.25rem;
+      animation: fadeUp 0.3s ease 0.1s both;
+    }
+
+    .forecast-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .forecast-strip {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+    }
+
+    .forecast-day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 0.75rem 0.4rem;
+      text-align: center;
+    }
+
+    .forecast-day-name {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .forecast-icon { width: 44px; height: 44px; }
+
+    .forecast-high { font-size: 0.95rem; font-weight: 700; }
+
+    .forecast-low { font-size: 0.8rem; color: var(--muted); }
+
     /* Responsive */
     @media (max-width: 480px) {
       .app { padding: 1.25rem 0.75rem 3rem; }
@@ -252,6 +298,7 @@
       .main-temp { font-size: 3rem; }
       .details-grid { grid-template-columns: repeat(2, 1fr); }
       .city-name { font-size: 1.3rem; }
+      .forecast-strip { grid-template-columns: repeat(5, minmax(60px, 1fr)); overflow-x: auto; }
     }
   </style>
 </head>
@@ -284,13 +331,16 @@
       <p>Search for a city to see the current weather.</p>
     </div>
   </div>
+  <div id="forecast-area"></div>
 </div>
 
 <script>
   const API_KEY = '86b954a419ca57a8007d0ae2016eab85';
   const BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
+  const FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
 
   let currentData = null;
+  let forecastDays = null;
   let unit = localStorage.getItem('weatherUnit') || 'C';
 
   // Apply saved unit on load
@@ -332,6 +382,7 @@
     document.getElementById('btn-c').setAttribute('aria-pressed', u === 'C');
     document.getElementById('btn-f').setAttribute('aria-pressed', u === 'F');
     if (rerender && currentData) renderCard(currentData);
+    if (rerender && forecastDays) renderForecast(forecastDays);
   }
 
   // ── Search ───────────────────────────────────────────────
@@ -342,21 +393,34 @@
 
     setLoading(true);
     clearError();
+    document.getElementById('forecast-area').innerHTML = '';
 
     try {
-      const res = await fetch(`${BASE_URL}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`);
-      if (!res.ok) {
-        if (res.status === 404) throw new Error('City not found. Please check the spelling and try again.');
-        throw new Error(`Request failed (${res.status}). Please try again.`);
+      const [weatherRes, forecastRes] = await Promise.all([
+        fetch(`${BASE_URL}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`),
+        fetch(`${FORECAST_URL}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`)
+      ]);
+
+      if (!weatherRes.ok) {
+        if (weatherRes.status === 404) throw new Error('City not found. Please check the spelling and try again.');
+        throw new Error(`Request failed (${weatherRes.status}). Please try again.`);
       }
-      const data = await res.json();
+
+      const data = await weatherRes.json();
       currentData = data;
       renderCard(data);
+
+      if (forecastRes.ok) {
+        const fData = await forecastRes.json();
+        forecastDays = groupForecastByDay(fData.list);
+        renderForecast(forecastDays);
+      }
     } catch (err) {
       const msg = err.name === 'TypeError'
         ? 'Network error. Please check your internet connection.'
         : err.message;
       showError(msg);
+      forecastDays = null;
       setMainArea(`
         <div class="empty-state">
           <p class="big-icon" aria-hidden="true">🌤</p>
@@ -405,6 +469,52 @@
       <div class="detail-item">
         <span class="detail-label">${label}</span>
         <span class="detail-value">${value}</span>
+      </div>`;
+  }
+
+  // ── Forecast ─────────────────────────────────────────────
+  function groupForecastByDay(list) {
+    const today = new Date().toISOString().split('T')[0];
+    const days = {};
+
+    list.forEach(item => {
+      const date = item.dt_txt.split(' ')[0];
+      if (date === today) return;
+      if (!days[date]) days[date] = { temps: [], icon: null, description: null };
+      days[date].temps.push(item.main.temp);
+      if (item.dt_txt.includes('12:00:00') || !days[date].icon) {
+        days[date].icon = item.weather[0].icon;
+        days[date].description = item.weather[0].description;
+      }
+    });
+
+    return Object.entries(days).slice(0, 5).map(([date, d]) => ({
+      date,
+      high: Math.max(...d.temps),
+      low: Math.min(...d.temps),
+      icon: d.icon,
+      description: d.description
+    }));
+  }
+
+  function renderForecast(days) {
+    const cards = days.map(d => {
+      const dt = new Date(d.date + 'T12:00:00');
+      const dayName = dt.toLocaleDateString('en-US', { weekday: 'short' });
+      const iconUrl = `https://openweathermap.org/img/wn/${d.icon}@2x.png`;
+      return `
+        <div class="forecast-day">
+          <span class="forecast-day-name">${dayName}</span>
+          <img class="forecast-icon" src="${iconUrl}" alt="${esc(d.description)}" />
+          <span class="forecast-high">${fmtTemp(d.high)}</span>
+          <span class="forecast-low">${fmtTemp(d.low)}</span>
+        </div>`;
+    }).join('');
+
+    document.getElementById('forecast-area').innerHTML = `
+      <div class="forecast-section" aria-label="5-day forecast">
+        <p class="forecast-title">5-Day Forecast</p>
+        <div class="forecast-strip">${cards}</div>
       </div>`;
   }
 
