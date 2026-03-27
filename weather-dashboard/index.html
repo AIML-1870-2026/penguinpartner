@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Weather Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -292,6 +294,57 @@
 
     .forecast-low { font-size: 0.8rem; color: var(--muted); }
 
+    /* ── Cozy / Cottagecore theme ───────────────────────── */
+    body.cozy {
+      --card: rgba(255, 235, 185, 0.13);
+      --border: rgba(210, 160, 90, 0.3);
+      --accent: #c97940;
+      --text: #f5ede0;
+      --muted: #c4a882;
+      --error-bg: rgba(180, 60, 30, 0.15);
+      --error-border: rgba(210, 130, 60, 0.4);
+      --error-text: #ffb899;
+      --r: 18px;
+      --r-sm: 10px;
+    }
+
+    /* Subtle paper grain */
+    body.cozy::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+
+    body.cozy h1,
+    body.cozy .city-name,
+    body.cozy .main-temp { font-family: 'Lora', Georgia, serif; }
+
+    /* Theme toggle */
+    .theme-btn {
+      padding: 0.32rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      background: var(--card);
+      color: var(--text);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.2s;
+      white-space: nowrap;
+    }
+    .theme-btn:hover { border-color: var(--accent); }
+    .theme-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* Emoji icons (cozy) */
+    .weather-emoji-main { font-size: 4.5rem; line-height: 1; display: block; }
+    .forecast-emoji { font-size: 2rem; height: 44px; display: flex; align-items: center; justify-content: center; }
+
     /* Responsive */
     @media (max-width: 480px) {
       .app { padding: 1.25rem 0.75rem 3rem; }
@@ -307,9 +360,12 @@
 <div class="app">
   <header>
     <h1>Weather Dashboard</h1>
-    <div class="unit-toggle" role="group" aria-label="Temperature unit">
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+      <button id="theme-btn" class="theme-btn" aria-label="Switch to cozy theme" onclick="toggleTheme()">🍂 Cozy</button>
+      <div class="unit-toggle" role="group" aria-label="Temperature unit">
       <button class="unit-btn active" id="btn-c" aria-pressed="true" aria-label="Celsius" onclick="setUnit('C')">°C</button>
       <button class="unit-btn"        id="btn-f" aria-pressed="false" aria-label="Fahrenheit" onclick="setUnit('F')">°F</button>
+    </div>
     </div>
   </header>
 
@@ -343,9 +399,11 @@
   let currentData = null;
   let forecastDays = null;
   let unit = localStorage.getItem('weatherUnit') || 'C';
+  let theme = localStorage.getItem('theme') || 'dark';
 
-  // Apply saved unit on load
+  // Apply saved preferences on load
   setUnit(unit, false);
+  applyTheme(theme, false);
 
   // ── Conversions ──────────────────────────────────────────
   function toF(c) { return (c * 9 / 5) + 32; }
@@ -438,6 +496,9 @@
   function renderCard(d) {
     const cond = d.weather[0];
     const iconUrl = `https://openweathermap.org/img/wn/${cond.icon}@2x.png`;
+    const iconHtml = theme === 'cozy'
+      ? `<span class="weather-emoji-main" role="img" aria-label="${esc(cond.description)}">${getEmoji(cond.icon)}</span>`
+      : `<img class="weather-icon" src="${iconUrl}" alt="${esc(cond.description)}" width="80" height="80" />`;
     setBackground(cond.main, cond.icon.endsWith('n'));
 
     setMainArea(`
@@ -447,7 +508,7 @@
             <h2 class="city-name">${esc(d.name)}, ${esc(d.sys.country)}</h2>
             <p class="condition-text">${esc(cond.description)}</p>
           </div>
-          <img class="weather-icon" src="${iconUrl}" alt="${esc(cond.description)}" width="80" height="80" />
+          ${iconHtml}
         </div>
 
         <div class="temp-row">
@@ -475,6 +536,26 @@
       </div>`;
   }
 
+  // ── Theme toggle ─────────────────────────────────────────
+  function toggleTheme() {
+    applyTheme(theme === 'cozy' ? 'dark' : 'cozy');
+  }
+
+  function applyTheme(t, rerender = true) {
+    theme = t;
+    localStorage.setItem('theme', t);
+    document.body.classList.toggle('cozy', t === 'cozy');
+    const btn = document.getElementById('theme-btn');
+    btn.textContent = t === 'cozy' ? '✦ Default' : '🍂 Cozy';
+    btn.setAttribute('aria-label', t === 'cozy' ? 'Switch to default theme' : 'Switch to cozy theme');
+    if (rerender && currentData) {
+      const cond = currentData.weather[0];
+      setBackground(cond.main, cond.icon.endsWith('n'));
+      renderCard(currentData);
+      if (forecastDays) renderForecast(forecastDays);
+    }
+  }
+
   // ── Dynamic background ───────────────────────────────────
   const THEMES = {
     thunderstorm:  { start: '#0a0a1a', end: '#1f1535', accent: '#a78bfa' },
@@ -489,22 +570,43 @@
     default:       { start: '#0f172a', end: '#1e3a5f', accent: '#38bdf8' },
   };
 
+  const COZY_THEMES = {
+    thunderstorm: { start: '#2a2010', end: '#1a1408', accent: '#c97940' },
+    drizzle:      { start: '#2d4a3a', end: '#405a4a', accent: '#8fc4a0' },
+    rain:         { start: '#2a4035', end: '#3d5a48', accent: '#7ab898' },
+    snow:         { start: '#38485a', end: '#567080', accent: '#b0d0e8' },
+    atmosphere:   { start: '#4a4035', end: '#6a5a45', accent: '#c4a882' },
+    clear_day:    { start: '#7c4a00', end: '#c4800a', accent: '#ffd070' },
+    clear_night:  { start: '#1a1008', end: '#2d2015', accent: '#d4c090' },
+    clouds_day:   { start: '#5a4a35', end: '#7a6550', accent: '#c4a882' },
+    clouds_night: { start: '#2a2015', end: '#3d3020', accent: '#a09070' },
+    default:      { start: '#3d2b1a', end: '#5a4030', accent: '#c97940' },
+  };
+
   const ATMOSPHERE = new Set(['mist','smoke','haze','dust','fog','sand','ash','squall','tornado']);
 
-  function getTheme(condition, isNight) {
-    const c = condition.toLowerCase();
-    if (c === 'thunderstorm') return THEMES.thunderstorm;
-    if (c === 'drizzle')      return THEMES.drizzle;
-    if (c === 'rain')         return THEMES.rain;
-    if (c === 'snow')         return THEMES.snow;
-    if (ATMOSPHERE.has(c))    return THEMES.atmosphere;
-    if (c === 'clear')        return isNight ? THEMES.clear_night  : THEMES.clear_day;
-    if (c === 'clouds')       return isNight ? THEMES.clouds_night : THEMES.clouds_day;
-    return THEMES.default;
+  const WEATHER_EMOJI = {
+    '01d':'☀️','01n':'🌙','02d':'🌤️','02n':'🌤️','03d':'⛅','03n':'⛅',
+    '04d':'☁️','04n':'☁️','09d':'🌦️','09n':'🌧️','10d':'🌧️','10n':'🌧️',
+    '11d':'⛈️','11n':'⛈️','13d':'🌨️','13n':'🌨️','50d':'🌫️','50n':'🌫️',
+  };
+  function getEmoji(icon) { return WEATHER_EMOJI[icon] || '🌡️'; }
+
+  function pickTheme(condition, isNight) {
+    const palette = theme === 'cozy' ? COZY_THEMES : THEMES;
+    const c = (condition || 'default').toLowerCase();
+    if (c === 'thunderstorm') return palette.thunderstorm;
+    if (c === 'drizzle')      return palette.drizzle;
+    if (c === 'rain')         return palette.rain;
+    if (c === 'snow')         return palette.snow;
+    if (ATMOSPHERE.has(c))    return palette.atmosphere;
+    if (c === 'clear')        return isNight ? palette.clear_night  : palette.clear_day;
+    if (c === 'clouds')       return isNight ? palette.clouds_night : palette.clouds_day;
+    return palette.default;
   }
 
   function setBackground(condition, isNight) {
-    const t = getTheme(condition, isNight);
+    const t = pickTheme(condition, isNight);
     document.body.style.background = `linear-gradient(135deg, ${t.start} 0%, ${t.end} 100%)`;
     document.documentElement.style.setProperty('--accent', t.accent);
   }
@@ -539,10 +641,13 @@
       const dt = new Date(d.date + 'T12:00:00');
       const dayName = dt.toLocaleDateString('en-US', { weekday: 'short' });
       const iconUrl = `https://openweathermap.org/img/wn/${d.icon}@2x.png`;
+      const iconHtml = theme === 'cozy'
+        ? `<span class="forecast-emoji" role="img" aria-label="${esc(d.description)}">${getEmoji(d.icon)}</span>`
+        : `<img class="forecast-icon" src="${iconUrl}" alt="${esc(d.description)}" />`;
       return `
         <div class="forecast-day">
           <span class="forecast-day-name">${dayName}</span>
-          <img class="forecast-icon" src="${iconUrl}" alt="${esc(d.description)}" />
+          ${iconHtml}
           <span class="forecast-high">${fmtTemp(d.high)}</span>
           <span class="forecast-low">${fmtTemp(d.low)}</span>
         </div>`;
