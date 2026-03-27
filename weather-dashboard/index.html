@@ -401,10 +401,6 @@
   let unit = localStorage.getItem('weatherUnit') || 'C';
   let theme = localStorage.getItem('theme') || 'dark';
 
-  // Apply saved preferences on load
-  setUnit(unit, false);
-  applyTheme(theme, false);
-
   // ── Conversions ──────────────────────────────────────────
   function toF(c) { return (c * 9 / 5) + 32; }
 
@@ -704,6 +700,10 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
+  // Apply saved preferences on load (after all consts are defined)
+  setUnit(unit, false);
+  applyTheme(theme, false);
 </script>
 </body>
 </html>
