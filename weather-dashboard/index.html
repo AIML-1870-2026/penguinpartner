@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Weather Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Special+Elite&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -294,44 +294,6 @@
 
     .forecast-low { font-size: 0.8rem; color: var(--muted); }
 
-    /* ── Vintage / Retro theme ──────────────────────────── */
-    body.retro {
-      --card: rgba(232, 184, 75, 0.07);
-      --border: rgba(232, 184, 75, 0.25);
-      --accent: #e8b84b;
-      --text: #e8b84b;
-      --muted: #7a6020;
-      --error-bg: rgba(200, 80, 20, 0.15);
-      --error-border: rgba(200, 80, 20, 0.4);
-      --error-text: #ff9955;
-      --r: 3px;
-      --r-sm: 2px;
-      font-family: 'Special Elite', 'Courier New', monospace;
-    }
-
-    /* CRT scanlines */
-    body.retro::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 9998;
-      background: repeating-linear-gradient(
-        0deg, transparent, transparent 3px,
-        rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
-      );
-    }
-
-    body.retro h1,
-    body.retro .city-name,
-    body.retro .main-temp { font-family: 'Special Elite', 'Courier New', monospace; letter-spacing: 0.04em; }
-
-    body.retro h1,
-    body.retro .main-temp { text-shadow: 0 0 18px rgba(232,184,75,0.45); }
-
-    body.retro .detail-label { letter-spacing: 0.1em; }
-    body.retro .search-btn:hover:not(:disabled) { background: #f0d070; }
-
     /* ── Cozy / Cottagecore theme ───────────────────────── */
     body.cozy {
       --card: rgba(255, 235, 185, 0.13);
@@ -546,16 +508,16 @@
 
         <div class="temp-row">
           <span class="main-temp">${fmtTemp(d.main.temp)}</span>
-          <span class="feels-like">${theme === 'retro' ? 'APPARENT: ' : 'Feels like '}${fmtTemp(d.main.feels_like)}</span>
+          <span class="feels-like">Feels like ${fmtTemp(d.main.feels_like)}</span>
         </div>
 
         <div class="details-grid">
-          ${detail(labelFor('Humidity'),   `${d.main.humidity}%`)}
-          ${detail(labelFor('Wind'),       fmtWind(d.wind.speed))}
-          ${detail(labelFor('Visibility'), fmtVis(d.visibility))}
-          ${detail(labelFor('Pressure'),   `${d.main.pressure} hPa`)}
-          ${detail(labelFor('Sunrise'),    fmtTime(d.sys.sunrise, d.timezone))}
-          ${detail(labelFor('Sunset'),     fmtTime(d.sys.sunset,  d.timezone))}
+          ${detail('Humidity',   `${d.main.humidity}%`)}
+          ${detail('Wind',       fmtWind(d.wind.speed))}
+          ${detail('Visibility', fmtVis(d.visibility))}
+          ${detail('Pressure',   `${d.main.pressure} hPa`)}
+          ${detail('Sunrise',    fmtTime(d.sys.sunrise, d.timezone))}
+          ${detail('Sunset',     fmtTime(d.sys.sunset,  d.timezone))}
         </div>
       </article>
     `);
@@ -570,23 +532,15 @@
   }
 
   // ── Theme toggle ─────────────────────────────────────────
-  const THEME_CYCLE = { dark: 'cozy', cozy: 'retro', retro: 'dark' };
-  const THEME_BTN_LABEL = { dark: '🍂 Cozy', cozy: '📺 Retro', retro: '✦ Default' };
-
-  function toggleTheme() { applyTheme(THEME_CYCLE[theme]); }
+  function toggleTheme() { applyTheme(theme === 'cozy' ? 'dark' : 'cozy'); }
 
   function applyTheme(t, rerender = true) {
     theme = t;
     localStorage.setItem('theme', t);
-    document.body.classList.toggle('cozy',  t === 'cozy');
-    document.body.classList.toggle('retro', t === 'retro');
+    document.body.classList.toggle('cozy', t === 'cozy');
     const btn = document.getElementById('theme-btn');
-    btn.textContent = THEME_BTN_LABEL[t];
-    document.querySelector('h1').textContent = t === 'retro' ? 'WEATHER BUREAU' : 'Weather Dashboard';
-    document.getElementById('city-input').placeholder = t === 'retro' ? 'ENTER LOCATION...' : 'Search for a city...';
-    if (!document.getElementById('search-btn').disabled) {
-      document.getElementById('search-btn').textContent = t === 'retro' ? 'TRANSMIT' : 'Search';
-    }
+    btn.textContent = t === 'cozy' ? '✦ Default' : '🍂 Cozy';
+    btn.setAttribute('aria-label', t === 'cozy' ? 'Switch to default theme' : 'Switch to cozy theme');
     if (rerender && currentData) {
       const cond = currentData.weather[0];
       setBackground(cond.main, cond.icon.endsWith('n'));
@@ -648,21 +602,11 @@
   }
 
   function setBackground(condition, isNight) {
-    if (theme === 'retro') {
-      document.body.style.background = 'linear-gradient(160deg, #0a0800 0%, #130f00 100%)';
-      document.documentElement.style.setProperty('--accent', '#e8b84b');
-      return;
-    }
     const t = pickTheme(condition, isNight);
     document.body.style.background = `linear-gradient(135deg, ${t.start} 0%, ${t.end} 100%)`;
     document.documentElement.style.setProperty('--accent', t.accent);
   }
 
-  const RETRO_LABELS = {
-    'Humidity': 'MOISTURE', 'Wind': 'AIR CURRENT', 'Visibility': 'VIS. RANGE',
-    'Pressure': 'BAROMETRIC', 'Sunrise': 'DAWN', 'Sunset': 'DUSK',
-  };
-  function labelFor(k) { return theme === 'retro' ? (RETRO_LABELS[k] || k.toUpperCase()) : k; }
 
   // ── Forecast ─────────────────────────────────────────────
   function groupForecastByDay(list) {
@@ -708,7 +652,7 @@
 
     document.getElementById('forecast-area').innerHTML = `
       <div class="forecast-section" aria-label="5-day forecast">
-        <p class="forecast-title">${theme === 'retro' ? 'EXTENDED OUTLOOK' : '5-Day Forecast'}</p>
+        <p class="forecast-title">5-Day Forecast</p>
         <div class="forecast-strip">${cards}</div>
       </div>`;
   }
@@ -724,7 +668,7 @@
       setMainArea(`
         <div class="loading-state" aria-live="polite">
           <div class="spinner" aria-hidden="true"></div>
-          <p>${theme === 'retro' ? 'ACQUIRING SIGNAL...' : 'Fetching weather…'}</p>
+          <p>Fetching weather…</p>
         </div>
       `);
     }
@@ -744,8 +688,8 @@
 
   function emptyStateHtml() {
     return `<div class="empty-state">
-      <p class="big-icon" aria-hidden="true">${theme === 'retro' ? '📡' : '🌤'}</p>
-      <p>${theme === 'retro' ? 'STATION IDLE. ENTER LOCATION.' : 'Search for a city to see the current weather.'}</p>
+      <p class="big-icon" aria-hidden="true">🌤</p>
+      <p>Search for a city to see the current weather.</p>
     </div>`;
   }
 
