@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEO Dashboard — Near-Earth Object Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0b0e;
+    --surface: #111318;
+    --surface2: #1a1d25;
+    --border: #252932;
+    --text: #e8eaf0;
+    --text-muted: #6b7280;
+    --accent-cad: #7F77DD;
+    --accent-sentry: #1D9E75;
+    --accent-risk: #D85A30;
+    --accent-forecast: #D4537E;
+    --accent-size: #BA7517;
+    --accent-accounts: #185FA5;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent-cad); }
+  .header-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .live-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-sentry);
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── Tab nav ── */
+  nav {
+    padding: 0 32px;
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 14px 18px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color .2s, border-color .2s;
+  }
+  nav button:hover { color: var(--text); }
+  nav button.active { border-bottom-color: var(--tab-accent); color: var(--tab-accent); }
+
+  /* ── Tab panels ── */
+  .panel { display: none; padding: 28px 32px; }
+  .panel.active { display: block; }
+
+  /* ── Metric cards ── */
+  .metric-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--card-accent, var(--accent-cad));
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+  .metric-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Section titles ── */
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  /* ── Chart row ── */
+  .chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .chart-box canvas { max-height: 220px; }
+
+  /* ── Filters ── */
+  .filter-row {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-group { display: flex; align-items: center; gap: 8px; }
+  .filter-group label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .filter-group input[type=range] { accent-color: var(--tab-accent); width: 130px; }
+  .filter-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .filter-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--tab-accent);
+    min-width: 46px;
+  }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .table-wrap table { width: 100%; border-collapse: collapse; }
+  .table-wrap th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .table-wrap td {
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-wrap tr:last-child td { border-bottom: none; }
+  .table-wrap tr:hover td { background: var(--surface2); }
+  .object-name { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    letter-spacing: .4px;
+  }
+  .badge-red    { background: rgba(220,53,69,.18); color: #ff6b7a; border: 1px solid rgba(220,53,69,.35); }
+  .badge-amber  { background: rgba(255,165,0,.15); color: #ffa500; border: 1px solid rgba(255,165,0,.3); }
+  .badge-blue   { background: rgba(64,169,255,.13); color: #40a9ff; border: 1px solid rgba(64,169,255,.28); }
+  .badge-green  { background: rgba(29,158,117,.13); color: #1D9E75; border: 1px solid rgba(29,158,117,.28); }
+  .badge-purple { background: rgba(127,119,221,.15); color: #7F77DD; border: 1px solid rgba(127,119,221,.28); }
+
+  /* ── Loading / error states ── */
+  .loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--tab-accent, var(--accent-cad));
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Palermo bars ── */
+  .palermo-list { display: flex; flex-direction: column; gap: 6px; }
+  .palermo-row { display: flex; align-items: center; gap: 10px; }
+  .palermo-name { font-size: 11px; width: 140px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .palermo-bar-wrap { flex: 1; background: var(--surface2); border-radius: 3px; height: 14px; overflow: hidden; }
+  .palermo-bar { height: 100%; border-radius: 3px; transition: width .6s; }
+  .palermo-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; width: 54px; text-align: right; flex-shrink: 0; }
+
+  /* ── Calendar grid ── */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .cal-day {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 10px;
+    min-height: 110px;
+  }
+  .cal-day.today { border-color: var(--accent-cad); border-width: 2px; }
+  .cal-day-head { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+  .cal-day-num  { font-size: 20px; font-weight: 800; margin: 2px 0 8px; }
+  .cal-chip {
+    display: block;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cal-chip-safe   { background: rgba(29,158,117,.15); color: #1D9E75; }
+  .cal-chip-hazard { background: rgba(255,165,0,.15); color: #ffa500; }
+  .cal-chip-more   { background: var(--surface2); color: var(--text-muted); text-align: center; }
+  .cal-empty { font-size: 10px; color: var(--text-muted); font-style: italic; }
+
+  /* ── Bubble canvas ── */
+  #sizeCanvas {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 100%;
+    cursor: default;
+  }
+  .bubble-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    margin-bottom: 22px;
+  }
+  .bubble-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .bubble-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .view-toggle { display: flex; gap: 6px; margin-bottom: 14px; }
+  .view-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .view-btn.active { background: var(--accent-size); border-color: var(--accent-size); color: #fff; }
+
+  /* ── Account cards ── */
+  .accounts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .acct-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    gap: 14px;
+  }
+  .acct-avatar {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .acct-info { flex: 1; min-width: 0; }
+  .acct-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  .acct-role { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+  .acct-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+  .acct-stat { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .acct-stat span { display: block; color: var(--text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .5px; }
+  .plan-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    margin-top: 8px;
+  }
+
+  /* ── Pricing cards ── */
+  .pricing-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .price-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 18px;
+  }
+  .price-card.featured { border-color: var(--accent-cad); border-width: 2px; position: relative; }
+  .popular-pill {
+    position: absolute;
+    top: -10px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-cad);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .plan-name { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+  .plan-price { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 600; margin-bottom: 12px; }
+  .plan-price span { font-size: 12px; color: var(--text-muted); }
+  .plan-features { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .plan-features li { font-size: 12px; color: var(--text-muted); }
+  .plan-features li::before { content: "✓ "; color: var(--accent-sentry); font-weight: 700; }
+
+  /* ── Intersection table empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 36px 20px;
+    color: var(--accent-sentry);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .chart-row { grid-template-columns: 1fr; }
+    .cal-grid { grid-template-columns: repeat(4, 1fr); }
+    nav { padding: 0 16px; }
+    .panel { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">NEO <span>Dashboard</span></div>
+  <div class="header-meta">
+    <span class="live-dot"></span>NASA/JPL · CNEOS · <span id="hdrDate">—</span>
+  </div>
+</header>
+
+<nav id="tabNav">
+  <button class="active" data-tab="cad"       style="--tab-accent:var(--accent-cad)">Close Approaches</button>
+  <button              data-tab="sentry"    style="--tab-accent:var(--accent-sentry)">Impact Monitor</button>
+  <button              data-tab="risk"      style="--tab-accent:var(--accent-risk)">Risk Analysis</button>
+  <button              data-tab="forecast"  style="--tab-accent:var(--accent-forecast)">Weekly Forecast</button>
+  <button              data-tab="size"      style="--tab-accent:var(--accent-size)">Size Comparison</button>
+  <button              data-tab="accounts"  style="--tab-accent:var(--accent-accounts)">Accounts</button>
+</nav>
+
+<!-- ─────────────────────────────────────── TAB 1: Close Approaches ── -->
+<div id="panel-cad" class="panel active" style="--tab-accent:var(--accent-cad)">
+  <div class="metric-row">
+    <div class="metric-card" style="--card-accent:var(--accent-cad)">
+      <div class="metric-label">Total Approaches</div>
+      <div class="metric-value" id="cad-total">—</div>
+      <div class="metric-sub">60-day window</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-cad)">
+      <div class="metric-label">Closest Approach</div>
+      <div class="metric-value" id="cad-closest">—</div>
+      <div class="metric-sub">lunar distances</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-cad)">
+      <div class="metric-label">Fastest Object</div>
+      <div class="metric-value" id="cad-fastest">—</div>
+      <div class="metric-sub">km/s relative vel.</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-cad)">
+      <div class="metric-label">PHA Count</div>
+      <div class="metric-value" id="cad-pha">—</div>
+      <div class="metric-sub">dist &lt;5 LD &amp; H &lt;22</div>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-box">
+      <div class="section-title">Approaches per Month</div>
+      <canvas id="cadMonthChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="section-title">Distance vs. Velocity</div>
+      <canvas id="cadScatterChart"></canvas>
+    </div>
+  </div>
+
+  <div class="filter-row">
+    <div class="filter-group">
+      <label>Max Distance</label>
+      <input type="range" id="cadDistSlider" min="1" max="50" value="20">
+      <span class="filter-val" id="cadDistVal">20 LD</span>
+    </div>
+    <div class="filter-group">
+      <label>Sort by</label>
+      <select id="cadSort">
+        <option value="date">Date</option>
+        <option value="dist">Distance</option>
+        <option value="vel">Velocity</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="cadTableWrap">
+    <div class="loading-state"><div class="spinner"></div>Fetching close approach data…</div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── TAB 2: Impact Monitor ── -->
+<div id="panel-sentry" class="panel" style="--tab-accent:var(--accent-sentry)">
+  <div class="metric-row">
+    <div class="metric-card" style="--card-accent:var(--accent-sentry)">
+      <div class="metric-label">Monitored Objects</div>
+      <div class="metric-value" id="s-count">—</div>
+      <div class="metric-sub">Sentry watch list</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-sentry)">
+      <div class="metric-label">Highest IP</div>
+      <div class="metric-value" id="s-ip">—</div>
+      <div class="metric-sub">impact probability</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-sentry)">
+      <div class="metric-label">Largest Threat</div>
+      <div class="metric-value" id="s-size">—</div>
+      <div class="metric-sub">km diameter</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-sentry)">
+      <div class="metric-label">Palermo Max</div>
+      <div class="metric-value" id="s-palermo">—</div>
+      <div class="metric-sub">cumulative scale</div>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-box">
+      <div class="section-title">Palermo Scale — Top 12</div>
+      <div id="palermoList" class="palermo-list">
+        <div class="loading-state"><div class="spinner"></div>Loading…</div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="section-title">Impact Probability Distribution</div>
+      <canvas id="ipHistChart"></canvas>
+    </div>
+  </div>
+
+  <div id="sentryTableWrap">
+    <div class="loading-state"><div class="spinner"></div>Fetching Sentry data…</div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── TAB 3: Risk Analysis ── -->
+<div id="panel-risk" class="panel" style="--tab-accent:var(--accent-risk)">
+  <div class="metric-row">
+    <div class="metric-card" style="--card-accent:var(--accent-risk)">
+      <div class="metric-label">Objects Under Watch</div>
+      <div class="metric-value" id="r-watch">—</div>
+      <div class="metric-sub">Sentry monitored</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-risk)">
+      <div class="metric-label">Torino &gt; 0</div>
+      <div class="metric-value" id="r-torino">—</div>
+      <div class="metric-sub">elevated risk</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-risk)">
+      <div class="metric-label">Approaches &lt;1 LD</div>
+      <div class="metric-value" id="r-lunar">—</div>
+      <div class="metric-sub">within lunar orbit</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-risk)">
+      <div class="metric-label">PHA This Period</div>
+      <div class="metric-value" id="r-pha">—</div>
+      <div class="metric-sub">potentially hazardous</div>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-box">
+      <div class="section-title">Distance Distribution (LD bins)</div>
+      <canvas id="riskDistChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="section-title">Size vs. Impact Probability</div>
+      <canvas id="riskSizeChart"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title">Cross-System Intersection — Objects in Both CAD &amp; Sentry</div>
+  <div id="intersectWrap">
+    <div class="loading-state"><div class="spinner"></div>Waiting for both datasets…</div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── TAB 4: Weekly Forecast ── -->
+<div id="panel-forecast" class="panel" style="--tab-accent:var(--accent-forecast)">
+  <div class="metric-row">
+    <div class="metric-card" style="--card-accent:var(--accent-forecast)">
+      <div class="metric-label">This Week Total</div>
+      <div class="metric-value" id="f-total">—</div>
+      <div class="metric-sub">fly-bys in 7 days</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-forecast)">
+      <div class="metric-label">Closest This Week</div>
+      <div class="metric-value" id="f-closest">—</div>
+      <div class="metric-sub">lunar distances</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-forecast)">
+      <div class="metric-label">Hazardous Days</div>
+      <div class="metric-value" id="f-hazdays">—</div>
+      <div class="metric-sub">days with PHA</div>
+    </div>
+    <div class="metric-card" style="--card-accent:var(--accent-forecast)">
+      <div class="metric-label">Peak Day</div>
+      <div class="metric-value" id="f-peak" style="font-size:18px">—</div>
+      <div class="metric-sub">most fly-bys</div>
+    </div>
+  </div>
+
+  <div id="forecastCal" class="cal-grid">
+    <!-- built by JS -->
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-box">
+      <div class="section-title">Daily Fly-by Count</div>
+      <canvas id="fDayCountChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="section-title">Closest Approach per Day (LD)</div>
+      <canvas id="fDistChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── TAB 5: Size Comparison ── -->
+<div id="panel-size" class="panel" style="--tab-accent:var(--accent-size)">
+  <div class="view-toggle">
+    <button class="view-btn active" id="vbLive">Live Approaches</button>
+    <button class="view-btn" id="vbSentry">Sentry Threats</button>
+    <button class="view-btn" id="vbFamous">Famous Asteroids</button>
+  </div>
+  <canvas id="sizeCanvas" height="320"></canvas>
+  <div class="bubble-legend" id="bubbleLegend"></div>
+
+  <div class="section-title">Size Reference Chart (log scale)</div>
+  <div class="chart-box" style="margin-bottom:0">
+    <canvas id="sizeLogChart"></canvas>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── TAB 6: Accounts ── -->
+<div id="panel-accounts" class="panel" style="--tab-accent:var(--accent-accounts)">
+  <div class="accounts-grid" id="acctGrid"><!-- built by JS --></div>
+
+  <div class="section-title">Subscription Plans</div>
+  <div class="pricing-row">
+    <div class="price-card">
+      <div class="plan-name">Observer</div>
+      <div class="plan-price">$0<span>/mo</span></div>
+      <ul class="plan-features">
+        <li>7-day window</li>
+        <li>50 objects</li>
+        <li>No alerts</li>
+      </ul>
+    </div>
+    <div class="price-card featured">
+      <div class="popular-pill">Most Popular</div>
+      <div class="plan-name">Sentinel</div>
+      <div class="plan-price">$29<span>/mo</span></div>
+      <ul class="plan-features">
+        <li>30-day window</li>
+        <li>500 objects</li>
+        <li>Alert notifications</li>
+      </ul>
+    </div>
+    <div class="price-card">
+      <div class="plan-name">Planetary Defense</div>
+      <div class="plan-price">$99<span>/mo</span></div>
+      <ul class="plan-features">
+        <li>Unlimited window</li>
+        <li>Unlimited objects</li>
+        <li>Alerts + API access</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:28px">Usage — Approaches Logged per User</div>
+  <div class="chart-box">
+    <canvas id="usageChart"></canvas>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── SCRIPT ── -->
+<script>
+const AU_TO_LD = 389.17;
+
+// ── State ──────────────────────────────────────────────────────────
+let cadData = [], cadFields = [];
+let sentryData = [];
+let cadReady = false, sentryReady = false;
+let activeTab = 'cad';
+
+// Chart references (so we can destroy/re-create)
+let charts = {};
+
+// Size comparison state
+let sizeMode = 'live';
+
+// ── Helpers ────────────────────────────────────────────────────────
+const fld = (row, name) => {
+  const i = cadFields.indexOf(name);
+  return i >= 0 ? row[i] : null;
+};
+const toLD  = au => +(parseFloat(au) * AU_TO_LD).toFixed(3);
+const fmt1  = v  => parseFloat(v).toFixed(1);
+const fmtDate = s => s ? s.slice(0,10) : '—';
+
+function hazardBadge(distLD, h) {
+  const hv = parseFloat(h);
+  if (distLD < 1  && hv < 22) return '<span class="badge badge-red">High</span>';
+  if (distLD < 5  && hv < 22) return '<span class="badge badge-amber">Moderate</span>';
+  if (distLD < 10)             return '<span class="badge badge-blue">Low</span>';
+  return '<span class="badge badge-green">Minimal</span>';
+}
+function isPHA(distLD, h) {
+  return distLD < 5 && parseFloat(h) < 22;
+}
+function palermoColor(ps) {
+  if (ps > -1) return '#ff6b7a';
+  if (ps > -2) return '#ffa500';
+  if (ps > -3) return '#40a9ff';
+  return '#6b7280';
+}
+function tornoBadge(t) {
+  t = parseInt(t) || 0;
+  if (t >= 4) return '<span class="badge badge-red">'+t+' Threatening</span>';
+  if (t >= 1) return '<span class="badge badge-amber">'+t+' Attention</span>';
+  return '<span class="badge badge-green">0 No hazard</span>';
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ── Tab switching ──────────────────────────────────────────────────
+document.getElementById('tabNav').addEventListener('click', e => {
+  if (!e.target.dataset.tab) return;
+  const tab = e.target.dataset.tab;
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  activeTab = tab;
+  if (tab === 'size') drawSizeCanvas();
+});
+
+// ── Mock data (fallback when API is unreachable from file://) ──────
+const MOCK_CAD_FIELDS = ['des','fullname','cd','jd','dist','dist_min','dist_max','v_rel','v_inf','h','diameter','t_sigma_f','orbit_id'];
+const MOCK_CAD_DATA = [
+  ['2026 AB3',  '(2026 AB3)',  '2026-Mar-31 04:12', '2461938.2', '0.00312', '0.00298', '0.00326', '14.23', '14.10', '21.3', '0.120', '< 00:01', '123'],
+  ['2025 XY9',  '(2025 XY9)',  '2026-Apr-01 11:45', '2461939.5', '0.00841', '0.00821', '0.00862', '8.74',  '8.60',  '24.1', null,    '< 00:01', '98' ],
+  ['2024 QT5',  '(2024 QT5)',  '2026-Apr-02 17:30', '2461940.7', '0.01523', '0.01498', '0.01548', '22.51', '22.44', '19.8', '0.340', '< 00:01', '211'],
+  ['2026 CA1',  '(2026 CA1)',  '2026-Apr-03 08:00', '2461941.3', '0.00078', '0.00070', '0.00086', '31.05', '30.98', '20.5', '0.085', '< 00:01', '307'],
+  ['2020 NK1',  '(2020 NK1)',  '2026-Apr-04 14:22', '2461942.6', '0.03112', '0.03088', '0.03136', '6.12',  '6.00',  '25.7', null,    '< 00:01', '45' ],
+  ['2019 BE5',  '(2019 BE5)',  '2026-Apr-05 21:10', '2461943.9', '0.02445', '0.02431', '0.02459', '17.88', '17.79', '22.9', '0.210', '< 00:01', '178'],
+  ['2026 DM7',  '(2026 DM7)',  '2026-Apr-06 03:55', '2461944.2', '0.00501', '0.00492', '0.00510', '10.33', '10.21', '21.8', '0.098', '< 00:01', '412'],
+  ['2023 FP2',  '(2023 FP2)',  '2026-Apr-07 09:40', '2461945.4', '0.04812', '0.04790', '0.04834', '4.55',  '4.48',  '26.2', null,    '< 00:01', '67' ],
+  ['2025 GH8',  '(2025 GH8)',  '2026-Apr-08 16:15', '2461946.7', '0.01887', '0.01872', '0.01902', '19.44', '19.35', '23.4', '0.150', '< 00:01', '290'],
+  ['2021 JK4',  '(2021 JK4)',  '2026-Apr-10 22:05', '2461948.9', '0.03674', '0.03650', '0.03698', '12.77', '12.68', '24.8', null,    '< 00:01', '83' ],
+  ['2018 RV3',  '(2018 RV3)',  '2026-Apr-12 07:30', '2461950.3', '0.00234', '0.00228', '0.00240', '27.90', '27.82', '20.1', '0.195', '< 00:01', '156'],
+  ['2026 EF11', '(2026 EF11)', '2026-Apr-14 13:48', '2461952.6', '0.02990', '0.02974', '0.03006', '9.88',  '9.77',  '25.0', null,    '< 00:01', '34' ],
+  ['2022 PQ6',  '(2022 PQ6)',  '2026-Apr-17 19:22', '2461955.8', '0.05100', '0.05076', '0.05124', '3.21',  '3.15',  '27.1', null,    '< 00:01', '19' ],
+  ['2026 FA2',  '(2026 FA2)',  '2026-Apr-19 04:11', '2461957.2', '0.00662', '0.00651', '0.00673', '16.60', '16.52', '21.0', '0.072', '< 00:01', '508'],
+  ['2017 CS5',  '(2017 CS5)',  '2026-Apr-22 10:55', '2461960.5', '0.01348', '0.01333', '0.01363', '24.15', '24.07', '19.2', '0.480', '< 00:01', '624'],
+  ['2026 GK3',  '(2026 GK3)',  '2026-Apr-25 16:40', '2461963.7', '0.04233', '0.04210', '0.04256', '7.44',  '7.36',  '25.5', null,    '< 00:01', '71' ],
+  ['2023 MT9',  '(2023 MT9)',  '2026-Apr-28 22:18', '2461966.9', '0.02781', '0.02764', '0.02798', '11.55', '11.46', '23.7', '0.135', '< 00:01', '199'],
+  ['2025 NB4',  '(2025 NB4)',  '2026-May-01 08:04', '2461969.3', '0.00193', '0.00186', '0.00200', '35.72', '35.64', '18.9', '0.620', '< 00:01', '741'],
+  ['2026 HM5',  '(2026 HM5)',  '2026-May-04 14:37', '2461972.6', '0.03456', '0.03432', '0.03480', '5.88',  '5.80',  '26.0', null,    '< 00:01', '28' ],
+  ['2020 OP7',  '(2020 OP7)',  '2026-May-07 20:15', '2461975.8', '0.01745', '0.01729', '0.01761', '20.33', '20.24', '22.6', '0.175', '< 00:01', '316'],
+  ['2024 RS2',  '(2024 RS2)',  '2026-May-11 02:50', '2461979.1', '0.04890', '0.04865', '0.04915', '2.98',  '2.91',  '27.4', null,    '< 00:01', '14' ],
+  ['2026 JT6',  '(2026 JT6)',  '2026-May-14 09:22', '2461982.4', '0.00478', '0.00469', '0.00487', '13.66', '13.57', '21.5', '0.108', '< 00:01', '463'],
+  ['2019 UW1',  '(2019 UW1)',  '2026-May-18 15:40', '2461986.7', '0.02134', '0.02118', '0.02150', '18.99', '18.91', '23.1', '0.200', '< 00:01', '284'],
+  ['2026 KF8',  '(2026 KF8)',  '2026-May-22 21:05', '2461990.9', '0.03789', '0.03765', '0.03813', '8.21',  '8.13',  '25.3', null,    '< 00:01', '57' ],
+  ['2021 VX3',  '(2021 VX3)',  '2026-May-27 05:30', '2461995.2', '0.01056', '0.01041', '0.01071', '26.78', '26.69', '20.7', '0.255', '< 00:01', '537'],
+  ['2018 WA9',  '(2018 WA9)',  '2026-May-31 12:18', '2461999.5', '0.04567', '0.04542', '0.04592', '4.10',  '4.03',  '26.6', null,    '< 00:01', '32' ],
+];
+const MOCK_SENTRY_DATA = [
+  { des:'29075 (1950 DA)', fullname:'29075 (1950 DA)',   ip:'3.0e-4', ps_cum:'-1.42', ps_max:'-1.42', ts_max:'0', n_imp:'1',  range:'2880',      diameter:'1.30',  h:'17.0', v_inf:'14.0', last_obs:'2012-12-31', id:'bJ50D00A' },
+  { des:'101955 Bennu',    fullname:'101955 Bennu',      ip:'1.8e-3', ps_cum:'-1.40', ps_max:'-1.40', ts_max:'0', n_imp:'78', range:'2178-2290', diameter:'0.490', h:'20.9', v_inf:'5.9',  last_obs:'2021-07-14', id:'bK99X55O' },
+  { des:'2010 RF12',       fullname:'(2010 RF12)',        ip:'4.9e-2', ps_cum:'-1.56', ps_max:'-1.56', ts_max:'0', n_imp:'18', range:'2095-2116', diameter:'0.007', h:'28.6', v_inf:'11.6', last_obs:'2015-10-05', id:'bK10R12F' },
+  { des:'2000 SG344',      fullname:'(2000 SG344)',       ip:'9.7e-3', ps_cum:'-1.71', ps_max:'-1.54', ts_max:'0', n_imp:'4',  range:'2069-2110', diameter:'0.037', h:'24.7', v_inf:'0.9',  last_obs:'2021-01-02', id:'bK00S344G'},
+  { des:'2007 FT3',        fullname:'(2007 FT3)',          ip:'2.8e-5', ps_cum:'-2.38', ps_max:'-2.38', ts_max:'0', n_imp:'1',  range:'2024',      diameter:'0.340', h:'21.0', v_inf:'16.7', last_obs:'2007-03-27', id:'bK07F03T' },
+  { des:'2023 DW',         fullname:'(2023 DW)',          ip:'1.0e-3', ps_cum:'-2.61', ps_max:'-2.61', ts_max:'0', n_imp:'1',  range:'2046',      diameter:'0.049', h:'24.2', v_inf:'17.2', last_obs:'2023-03-01', id:'bK23D00W' },
+  { des:'1979 XB',         fullname:'(1979 XB)',          ip:'4.3e-4', ps_cum:'-2.63', ps_max:'-2.63', ts_max:'0', n_imp:'1',  range:'2056',      diameter:'0.690', h:'18.8', v_inf:'19.2', last_obs:'1979-12-19', id:'bJ79X00B' },
+  { des:'2011 AG5',        fullname:'(2011 AG5)',          ip:'9.7e-5', ps_cum:'-2.71', ps_max:'-2.71', ts_max:'0', n_imp:'2',  range:'2040',      diameter:'0.140', h:'21.8', v_inf:'14.1', last_obs:'2023-09-25', id:'bK11A05G' },
+  { des:'2014 MF18',       fullname:'(2014 MF18)',         ip:'1.1e-3', ps_cum:'-3.01', ps_max:'-3.01', ts_max:'0', n_imp:'1',  range:'2052',      diameter:'0.250', h:'22.0', v_inf:'9.8',  last_obs:'2014-06-23', id:'bK14M18F' },
+  { des:'2009 JF1',        fullname:'(2009 JF1)',          ip:'3.8e-3', ps_cum:'-3.14', ps_max:'-3.14', ts_max:'0', n_imp:'1',  range:'2022',      diameter:'0.013', h:'26.5', v_inf:'13.6', last_obs:'2009-05-20', id:'bK09J01F' },
+  { des:'2019 PDC',        fullname:'(2019 PDC)',          ip:'7.2e-5', ps_cum:'-3.33', ps_max:'-3.33', ts_max:'0', n_imp:'3',  range:'2038-2044', diameter:'0.086', h:'22.7', v_inf:'12.1', last_obs:'2022-04-14', id:'bK19P00C' },
+  { des:'2010 CL19',       fullname:'(2010 CL19)',         ip:'5.0e-5', ps_cum:'-3.48', ps_max:'-3.48', ts_max:'0', n_imp:'2',  range:'2060',      diameter:'0.380', h:'20.4', v_inf:'8.7',  last_obs:'2019-09-16', id:'bK10C19L' },
+  { des:'2013 TV135',      fullname:'(2013 TV135)',        ip:'2.2e-5', ps_cum:'-3.71', ps_max:'-3.71', ts_max:'0', n_imp:'1',  range:'2032',      diameter:'0.430', h:'20.6', v_inf:'10.4', last_obs:'2014-01-28', id:'bK13T135V'},
+  { des:'2003 QQ47',       fullname:'(2003 QQ47)',         ip:'3.6e-6', ps_cum:'-3.82', ps_max:'-3.82', ts_max:'0', n_imp:'1',  range:'2038',      diameter:'1.200', h:'19.0', v_inf:'13.8', last_obs:'2003-12-01', id:'bK03Q47Q' },
+  { des:'2018 VP1',        fullname:'(2018 VP1)',          ip:'3.6e-3', ps_cum:'-3.90', ps_max:'-3.90', ts_max:'0', n_imp:'2',  range:'2020',      diameter:'0.002', h:'30.7', v_inf:'9.5',  last_obs:'2019-01-03', id:'bK18V01P' },
+];
+
+// ── Fetch CAD ─────────────────────────────────────────────────────
+async function fetchCAD() {
+  const url = 'https://ssd-api.jpl.nasa.gov/cad.api?dist-max=20LD&date-min=2026-03-31&date-max=2026-06-01&sort=date&diameter=true&limit=100&api_key=omgWTkO7yZsuFtCB1hbtoUNfiXV534PqCsmta7hB';
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    cadFields = j.fields;
+    cadData   = j.data || [];
+  } catch(e) {
+    console.warn('CAD API unavailable, using demo data:', e.message);
+    cadFields = MOCK_CAD_FIELDS;
+    cadData   = MOCK_CAD_DATA;
+    document.getElementById('hdrDate').insertAdjacentHTML('afterend', ' <span style="color:var(--accent-forecast);font-size:10px">(demo)</span>');
+  }
+  cadReady = true;
+  buildCAD();
+  buildRisk();
+  buildForecast();
+  buildSizeCharts();
+}
+
+// ── Fetch Sentry ───────────────────────────────────────────────────
+async function fetchSentry() {
+  const url = 'https://ssd-api.jpl.nasa.gov/sentry.api?limit=30&ps-min=-4';
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    sentryData = j.data || [];
+  } catch(e) {
+    console.warn('Sentry API unavailable, using demo data:', e.message);
+    sentryData = MOCK_SENTRY_DATA;
+  }
+  sentryReady = true;
+  buildSentry();
+  buildRisk();
+  buildSizeCharts();
+}
+
+// ── Build CAD tab ──────────────────────────────────────────────────
+function buildCAD() {
+  if (!cadReady) return;
+  // Metrics
+  const dists = cadData.map(r => toLD(fld(r,'dist')));
+  const vels  = cadData.map(r => parseFloat(fld(r,'v_rel')));
+  const hs    = cadData.map(r => parseFloat(fld(r,'h')));
+  const phas  = cadData.filter((_,i) => isPHA(dists[i], fld(cadData[i],'h'))).length;
+
+  document.getElementById('cad-total').textContent   = cadData.length;
+  document.getElementById('cad-closest').textContent = fmt1(Math.min(...dists));
+  document.getElementById('cad-fastest').textContent = fmt1(Math.max(...vels));
+  document.getElementById('cad-pha').textContent     = phas;
+
+  // Month chart
+  const monthBuckets = {};
+  cadData.forEach(r => {
+    const d = fld(r,'cd'); if (!d) return;
+    const key = d.slice(0,7); // YYYY-MM
+    monthBuckets[key] = (monthBuckets[key]||0)+1;
+  });
+  const mLabels = Object.keys(monthBuckets).sort();
+  destroyChart('cadMonth');
+  charts['cadMonth'] = new Chart(document.getElementById('cadMonthChart'), {
+    type: 'bar',
+    data: {
+      labels: mLabels.map(l => {
+        const [y,m] = l.split('-');
+        return new Date(+y,+m-1).toLocaleString('en',{month:'short',year:'2-digit'});
+      }),
+      datasets: [{ data: mLabels.map(k=>monthBuckets[k]), backgroundColor: '#7F77DD99', borderColor:'#7F77DD', borderWidth:1, borderRadius:4 }]
+    },
+    options: { plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7280',font:{size:10}}}, y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'#252932'}} }, responsive:true }
+  });
+
+  // Scatter
+  const scatterPts = cadData.map((r,i) => ({ x: dists[i], y: parseFloat(fld(r,'v_rel')), name: fld(r,'des') })).filter(p=>!isNaN(p.x)&&!isNaN(p.y));
+  destroyChart('cadScatter');
+  charts['cadScatter'] = new Chart(document.getElementById('cadScatterChart'), {
+    type: 'scatter',
+    data: { datasets:[{ data: scatterPts, backgroundColor:'#7F77DD66', borderColor:'#7F77DD', pointRadius:4, pointHoverRadius:6 }] },
+    options: {
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: ctx => {
+        const p=ctx.raw; return `${p.name}: ${fmt1(p.x)} LD, ${fmt1(p.y)} km/s`;
+      }}}},
+      scales: {
+        x:{ title:{display:true,text:'Distance (LD)',color:'#6b7280',font:{size:10}}, ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'#252932'} },
+        y:{ title:{display:true,text:'Velocity (km/s)',color:'#6b7280',font:{size:10}}, ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'#252932'} }
+      },
+      responsive:true
+    }
+  });
+
+  renderCADTable();
+}
+
+function cadRows() {
+  const maxLD = parseFloat(document.getElementById('cadDistSlider').value);
+  const sort  = document.getElementById('cadSort').value;
+  let rows = cadData.map(r => ({
+    r, dist: toLD(fld(r,'dist')), vel: parseFloat(fld(r,'v_rel')),
+    date: fld(r,'cd'), h: parseFloat(fld(r,'h'))
+  })).filter(o => o.dist <= maxLD);
+
+  if (sort==='dist') rows.sort((a,b)=>a.dist-b.dist);
+  else if (sort==='vel') rows.sort((a,b)=>b.vel-a.vel);
+  else rows.sort((a,b)=>a.date<b.date?-1:1);
+  return rows;
+}
+
+function renderCADTable() {
+  const rows = cadRows();
+  if (!rows.length) {
+    document.getElementById('cadTableWrap').innerHTML = '<div class="loading-state">No objects match the current filter.</div>';
+    return;
+  }
+  let html = `<div class="table-wrap"><table><thead><tr>
+    <th>Object</th><th>Date (UTC)</th><th>Distance (LD)</th><th>Velocity (km/s)</th><th>H mag</th><th>Diameter (km)</th><th>Hazard</th>
+  </tr></thead><tbody>`;
+  rows.forEach(({r, dist, vel, h}) => {
+    const diam = fld(r,'diameter');
+    html += `<tr>
+      <td class="object-name">${fld(r,'des')||'—'}</td>
+      <td>${fmtDate(fld(r,'cd'))}</td>
+      <td>${fmt1(dist)}</td>
+      <td>${isNaN(vel)?'—':fmt1(vel)}</td>
+      <td>${isNaN(h)?'—':h.toFixed(1)}</td>
+      <td>${diam&&diam!=='null'?parseFloat(diam).toFixed(3):'—'}</td>
+      <td>${hazardBadge(dist, h)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('cadTableWrap').innerHTML = html;
+}
+
+document.getElementById('cadDistSlider').addEventListener('input', function() {
+  document.getElementById('cadDistVal').textContent = this.value+' LD';
+  if (cadReady) renderCADTable();
+});
+document.getElementById('cadSort').addEventListener('change', () => { if (cadReady) renderCADTable(); });
+
+// ── Build Sentry tab ───────────────────────────────────────────────
+function buildSentry() {
+  if (!sentryReady) return;
+  const ips  = sentryData.map(o=>parseFloat(o.ip||0));
+  const dias = sentryData.map(o=>parseFloat(o.diameter||0)).filter(d=>d>0);
+  const ps   = sentryData.map(o=>parseFloat(o.ps_cum||0));
+
+  document.getElementById('s-count').textContent   = sentryData.length;
+  document.getElementById('s-ip').textContent      = (Math.max(...ips)*100).toExponential(2)+'%';
+  document.getElementById('s-size').textContent    = dias.length?Math.max(...dias).toFixed(2):'—';
+  document.getElementById('s-palermo').textContent = Math.max(...ps).toFixed(2);
+
+  // Palermo bars
+  const top12 = [...sentryData].sort((a,b)=>parseFloat(b.ps_cum)-parseFloat(a.ps_cum)).slice(0,12);
+  const psVals = top12.map(o=>parseFloat(o.ps_cum));
+  const psMin = Math.min(...psVals), psRange = Math.max(...psVals) - psMin || 1;
+  let pHtml = '';
+  top12.forEach(o => {
+    const v = parseFloat(o.ps_cum);
+    const w = Math.max(4, ((v-psMin)/psRange)*100);
+    const col = palermoColor(v);
+    pHtml += `<div class="palermo-row">
+      <div class="palermo-name" title="${o.fullname||o.des}">${(o.fullname||o.des||'').slice(0,22)}</div>
+      <div class="palermo-bar-wrap"><div class="palermo-bar" style="width:${w}%;background:${col}"></div></div>
+      <div class="palermo-label" style="color:${col}">${v.toFixed(2)}</div>
+    </div>`;
+  });
+  document.getElementById('palermoList').innerHTML = pHtml;
+
+  // IP histogram
+  const bins  = [0,0,0,0,0,0];
+  const edges = [1e-5,1e-4,1e-3,1e-2,1e-1];
+  const bLabels = ['<1e-5','1e-5','1e-4','1e-3','1e-2','≥1e-1'];
+  sentryData.forEach(o => {
+    const ip = parseFloat(o.ip||0);
+    let idx = 0;
+    for (let i=0;i<edges.length;i++) { if (ip >= edges[i]) idx = i+1; }
+    bins[idx]++;
+  });
+  destroyChart('ipHist');
+  charts['ipHist'] = new Chart(document.getElementById('ipHistChart'), {
+    type:'bar',
+    data:{ labels:bLabels, datasets:[{data:bins,backgroundColor:'#1D9E7566',borderColor:'#1D9E75',borderWidth:1,borderRadius:4}] },
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7280',font:{size:10}}}, y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'#252932'}} }, responsive:true }
+  });
+
+  // Table
+  let html = `<div class="table-wrap"><table><thead><tr>
+    <th>Object</th><th>Impact Prob.</th><th>Palermo</th><th>Torino</th><th>Diameter (km)</th><th>Potential Impacts</th><th>Year Range</th>
+  </tr></thead><tbody>`;
+  sentryData.forEach(o => {
+    const ip = parseFloat(o.ip||0);
+    html += `<tr>
+      <td class="object-name">${o.des||'—'}</td>
+      <td>${ip.toExponential(2)}</td>
+      <td style="color:${palermoColor(parseFloat(o.ps_cum))};font-family:'JetBrains Mono',monospace">${parseFloat(o.ps_cum).toFixed(2)}</td>
+      <td>${tornoBadge(o.ts_max)}</td>
+      <td>${o.diameter&&o.diameter!=='null'?parseFloat(o.diameter).toFixed(2):'—'}</td>
+      <td>${o.n_imp||'—'}</td>
+      <td>${o.range||'—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('sentryTableWrap').innerHTML = html;
+}
+
+// ── Build Risk tab ─────────────────────────────────────────────────
+function buildRisk() {
+  if (!cadReady || !sentryReady) return;
+
+  const dists = cadData.map(r=>toLD(fld(r,'dist')));
+  const phas  = cadData.filter((_,i)=>isPHA(dists[i],fld(cadData[i],'h'))).length;
+  const tori  = sentryData.filter(o=>parseInt(o.ts_max||0)>0).length;
+  const lunar = cadData.filter((_,i)=>dists[i]<1).length;
+
+  document.getElementById('r-watch').textContent  = sentryData.length;
+  document.getElementById('r-torino').textContent = tori;
+  document.getElementById('r-lunar').textContent  = lunar;
+  document.getElementById('r-pha').textContent    = phas;
+
+  // Distance histogram
+  const dbins  = [0,0,0,0,0,0,0];
+  const dEdges = [0,2,4,6,8,10,15,20];
+  const dLabels= ['0–2','2–4','4–6','6–8','8–10','10–15','15–20'];
+  dists.forEach(d => {
+    for (let i=dEdges.length-2;i>=0;i--) {
+      if (d >= dEdges[i] && d < dEdges[i+1]) { dbins[i]++; break; }
+    }
+  });
+  destroyChart('riskDist');
+  charts['riskDist'] = new Chart(document.getElementById('riskDistChart'), {
+    type:'bar',
+    data:{ labels:dLabels, datasets:[{data:dbins,backgroundColor:'#D85A3066',borderColor:'#D85A30',borderWidth:1,borderRadius:4}] },
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7280',font:{size:10}}}, y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'#252932'}} }, responsive:true }
+  });
+
+  // Size vs IP scatter
+  const sizePts = sentryData.map(o=>({ x:parseFloat(o.diameter||0), y:parseFloat(o.ip||0)*100, name:o.des })).filter(p=>p.x>0&&p.y>0);
+  destroyChart('riskSize');
+  charts['riskSize'] = new Chart(document.getElementById('riskSizeChart'), {
+    type:'scatter',
+    data:{ datasets:[{ data:sizePts, backgroundColor:'#D85A3066', borderColor:'#D85A30', pointRadius:5 }] },
+    options:{
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.raw.name}: ${ctx.raw.x.toFixed(2)} km, ${ctx.raw.y.toExponential(2)}%`}} },
+      scales:{
+        x:{ type:'logarithmic', title:{display:true,text:'Diameter (km)',color:'#6b7280',font:{size:10}}, ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'#252932'} },
+        y:{ type:'logarithmic', title:{display:true,text:'Impact Prob. (%)',color:'#6b7280',font:{size:10}}, ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'#252932'} }
+      },
+      responsive:true
+    }
+  });
+
+  // Intersection
+  const sentryDes = new Set(sentryData.map(o=>(o.des||'').toLowerCase().trim()));
+  const inter = cadData.filter(r => sentryDes.has((fld(r,'des')||'').toLowerCase().trim()));
+  let html;
+  if (!inter.length) {
+    html = '<div class="empty-state">No objects currently appear in both the 60-day close-approach window and the Sentry watch list. This is reassuring.</div>';
+  } else {
+    const sentryMap = {};
+    sentryData.forEach(o => sentryMap[(o.des||'').toLowerCase().trim()] = o);
+    html = `<div class="table-wrap"><table><thead><tr><th>Object</th><th>Approach Date</th><th>Distance (LD)</th><th>Impact Prob.</th><th>Palermo</th><th>Diameter (km)</th></tr></thead><tbody>`;
+    inter.forEach(r => {
+      const dist = toLD(fld(r,'dist'));
+      const so = sentryMap[(fld(r,'des')||'').toLowerCase().trim()];
+      html += `<tr><td class="object-name">${fld(r,'des')}</td><td>${fmtDate(fld(r,'cd'))}</td><td>${fmt1(dist)}</td><td>${parseFloat(so.ip||0).toExponential(2)}</td><td style="color:${palermoColor(parseFloat(so.ps_cum))}">${parseFloat(so.ps_cum).toFixed(2)}</td><td>${so.diameter&&so.diameter!=='null'?parseFloat(so.diameter).toFixed(2):'—'}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+  document.getElementById('intersectWrap').innerHTML = html;
+}
+
+// ── Build Forecast tab ─────────────────────────────────────────────
+function buildForecast() {
+  if (!cadReady) return;
+  const today = new Date('2026-03-31');
+  const days  = Array.from({length:7},(_,i)=>{ const d=new Date(today); d.setDate(d.getDate()+i); return d; });
+  const dayLabels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  // Map by date string
+  const byDay = {};
+  days.forEach(d => { byDay[d.toISOString().slice(0,10)] = []; });
+
+  cadData.forEach(r => {
+    const cd = fld(r,'cd'); if (!cd) return;
+    const dk = cd.slice(0,10);
+    if (byDay[dk]) byDay[dk].push(r);
+  });
+
+  // Metrics
+  const allWeek = Object.values(byDay).flat();
+  const weekDists = allWeek.map(r=>toLD(fld(r,'dist')));
+  const hazDays = days.filter(d => {
+    return byDay[d.toISOString().slice(0,10)].some(r => isPHA(toLD(fld(r,'dist')),fld(r,'h')));
+  }).length;
+  const counts = days.map(d=>byDay[d.toISOString().slice(0,10)].length);
+  const peakIdx = counts.indexOf(Math.max(...counts));
+
+  document.getElementById('f-total').textContent   = allWeek.length;
+  document.getElementById('f-closest').textContent = weekDists.length ? fmt1(Math.min(...weekDists)) : '—';
+  document.getElementById('f-hazdays').textContent = hazDays;
+  document.getElementById('f-peak').textContent    = allWeek.length ? dayLabels[days[peakIdx].getDay()] : '—';
+
+  // Calendar
+  let calHtml = '';
+  days.forEach(d => {
+    const dk = d.toISOString().slice(0,10);
+    const isToday = dk === '2026-03-31';
+    const rows = byDay[dk];
+    let chips = '';
+    rows.slice(0,3).forEach(r => {
+      const dist = toLD(fld(r,'dist'));
+      const hz   = isPHA(dist, fld(r,'h'));
+      chips += `<span class="cal-chip ${hz?'cal-chip-hazard':'cal-chip-safe'}">${fld(r,'des')||'?'}</span>`;
+    });
+    if (rows.length > 3) chips += `<span class="cal-chip cal-chip-more">+${rows.length-3} more</span>`;
+    if (!rows.length) chips = '<span class="cal-empty">No fly-bys</span>';
+    calHtml += `<div class="cal-day${isToday?' today':''}">
+      <div class="cal-day-head">${dayLabels[d.getDay()]}</div>
+      <div class="cal-day-num">${d.getDate()}</div>
+      ${chips}
+    </div>`;
+  });
+  document.getElementById('forecastCal').innerHTML = calHtml;
+
+  // Daily count bar chart
+  destroyChart('fDayCount');
+  charts['fDayCount'] = new Chart(document.getElementById('fDayCountChart'), {
+    type:'bar',
+    data:{
+      labels: days.map(d=>`${dayLabels[d.getDay()]} ${d.getDate()}`),
+      datasets:[{ data:counts, backgroundColor: counts.map((_,i)=> i===0 ? '#D4537E' : '#D4537E44'), borderColor:'#D4537E', borderWidth:1, borderRadius:4 }]
+    },
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7280',font:{size:10}}}, y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'#252932'}} }, responsive:true }
+  });
+
+  // Closest per day line chart
+  const closestPerDay = days.map(d => {
+    const dk = d.toISOString().slice(0,10);
+    const dists2 = byDay[dk].map(r=>toLD(fld(r,'dist')));
+    return dists2.length ? Math.min(...dists2) : null;
+  });
+  destroyChart('fDist');
+  charts['fDist'] = new Chart(document.getElementById('fDistChart'), {
+    type:'line',
+    data:{
+      labels: days.map(d=>`${dayLabels[d.getDay()]} ${d.getDate()}`),
+      datasets:[{ data:closestPerDay, borderColor:'#D4537E', backgroundColor:'#D4537E22', tension:.3, fill:true, pointRadius:4, spanGaps:false }]
+    },
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7280',font:{size:10}}}, y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'#252932'}} }, responsive:true }
+  });
+}
+
+// ── Size Comparison tab ────────────────────────────────────────────
+const FAMOUS = [
+  { name:'Ceres',           diameter:939    },
+  { name:'Vesta',           diameter:525    },
+  { name:'Apophis',         diameter:0.370  },
+  { name:'Bennu',           diameter:0.490  },
+  { name:'Ryugu',           diameter:0.900  },
+  { name:'Itokawa',         diameter:0.535  },
+  { name:'2024 BX1',        diameter:0.001  },
+  { name:'Chicxulub (est)', diameter:12     },
+];
+const PALETTE = ['#7F77DD','#1D9E75','#D85A30','#D4537E','#BA7517','#185FA5','#E6C229','#5EC7B5','#C85DD4','#6E9E3B'];
+
+function getSizeObjects() {
+  if (sizeMode==='famous') return FAMOUS.map((o,i)=>({name:o.name,diameter:o.diameter,color:PALETTE[i%PALETTE.length]}));
+  let src;
+  if (sizeMode==='live') src = cadData.filter(r=>fld(r,'diameter')&&fld(r,'diameter')!=='null').map(r=>({name:fld(r,'des'),diameter:parseFloat(fld(r,'diameter'))}));
+  else src = sentryData.filter(o=>o.diameter&&o.diameter!=='null').map(o=>({name:o.des,diameter:parseFloat(o.diameter)}));
+  return src.sort((a,b)=>b.diameter-a.diameter).slice(0,16).map((o,i)=>({...o,color:PALETTE[i%PALETTE.length]}));
+}
+
+function drawSizeCanvas() {
+  const objs = getSizeObjects();
+  const canvas = document.getElementById('sizeCanvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 800;
+  canvas.width = W;
+  canvas.height = 320;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,320);
+
+  if (!objs.length) {
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '14px Syne';
+    ctx.textAlign = 'center';
+    ctx.fillText(cadReady||sentryReady ? 'No diameter data available for this mode.' : 'Loading data…', W/2, 160);
+    return;
+  }
+
+  const dias = objs.map(o=>o.diameter).filter(d=>d>0);
+  if (!dias.length) return;
+  const logMin = Math.log10(Math.min(...dias));
+  const logMax = Math.log10(Math.max(...dias));
+  const logRange = logMax - logMin || 1;
+  const MAX_R = Math.min(W/2 - 24, 90);
+  const MIN_R = 4;
+
+  const radOf = d => {
+    if (d <= 0) return MIN_R;
+    const t = (Math.log10(d) - logMin) / logRange;
+    return MIN_R + t*(MAX_R-MIN_R);
+  };
+
+  // Layout: rows of 4
+  const cols = 4, rows = Math.ceil(objs.length/cols);
+  const cw = W/cols, ch = 320/rows;
+  let legend = '';
+
+  objs.forEach((o,i) => {
+    const col = i%cols, row = Math.floor(i/cols);
+    const cx = cw*col + cw/2;
+    const cy = ch*row + ch/2 - 10;
+    const r  = radOf(o.diameter);
+
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle = o.color+'55';
+    ctx.fill();
+    ctx.strokeStyle = o.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    const label = o.diameter >= 1 ? o.diameter.toFixed(1)+' km' : (o.diameter*1000).toFixed(1)+' m';
+    ctx.fillStyle = '#e8eaf0';
+    ctx.font = '10px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy+r+14);
+
+    legend += `<div class="bubble-chip"><div class="bubble-dot" style="background:${o.color}"></div>${o.name}</div>`;
+  });
+
+  document.getElementById('bubbleLegend').innerHTML = legend;
+}
+
+function buildSizeCharts() {
+  drawSizeCanvas();
+
+  // Log scale bar chart
+  const all = [
+    ...FAMOUS,
+    ...cadData.filter(r=>fld(r,'diameter')&&fld(r,'diameter')!=='null').map(r=>({name:fld(r,'des'),diameter:parseFloat(fld(r,'diameter'))})),
+    ...sentryData.filter(o=>o.diameter&&o.diameter!=='null').map(o=>({name:o.des,diameter:parseFloat(o.diameter)}))
+  ].filter(o=>o.diameter>0).sort((a,b)=>b.diameter-a.diameter).slice(0,24);
+
+  const sizeColor = d => {
+    if (d>10) return '#ff6b7a';
+    if (d>1)  return '#ffa500';
+    if (d>.1) return '#7F77DD';
+    return '#1D9E75';
+  };
+  destroyChart('sizeLog');
+  charts['sizeLog'] = new Chart(document.getElementById('sizeLogChart'), {
+    type:'bar',
+    data:{
+      labels: all.map(o=>o.name),
+      datasets:[{ data:all.map(o=>o.diameter), backgroundColor:all.map(o=>sizeColor(o.diameter)+'99'), borderColor:all.map(o=>sizeColor(o.diameter)), borderWidth:1, borderRadius:3 }]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ type:'logarithmic', ticks:{color:'#6b7280',font:{size:9}}, grid:{color:'#252932'} },
+        y:{ ticks:{color:'#6b7280',font:{size:9}}, grid:{color:'#252932'} }
+      },
+      responsive:true,
+      maintainAspectRatio:false
+    }
+  });
+  document.getElementById('sizeLogChart').style.height = (all.length*22+40)+'px';
+}
+
+document.getElementById('vbLive').addEventListener('click',   ()=>{ sizeMode='live';   setVB(); drawSizeCanvas(); });
+document.getElementById('vbSentry').addEventListener('click', ()=>{ sizeMode='sentry'; setVB(); drawSizeCanvas(); });
+document.getElementById('vbFamous').addEventListener('click', ()=>{ sizeMode='famous'; setVB(); drawSizeCanvas(); });
+function setVB() {
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  ({ live:document.getElementById('vbLive'), sentry:document.getElementById('vbSentry'), famous:document.getElementById('vbFamous') })[sizeMode].classList.add('active');
+}
+
+// ── Build Accounts tab ─────────────────────────────────────────────
+const ACCOUNTS = [
+  { name:'Elena Vasquez',  initials:'EV', role:'Planetary scientist',  plan:'Planetary Defense', planColor:'#D85A30', tracked:847,  logged:2341, alerts:12, lastLogin:'2026-03-30' },
+  { name:'Marcus Chen',    initials:'MC', role:'Asteroid tracker',     plan:'Sentinel',          planColor:'#7F77DD', tracked:312,  logged:890,  alerts:4,  lastLogin:'2026-03-31' },
+  { name:'Priya Nair',     initials:'PN', role:'Observatory director', plan:'Planetary Defense', planColor:'#D85A30', tracked:1102, logged:4512, alerts:31, lastLogin:'2026-03-29' },
+  { name:'Tom Okafor',     initials:'TO', role:'Research student',     plan:'Observer',          planColor:'#1D9E75', tracked:48,   logged:127,  alerts:0,  lastLogin:'2026-03-25' },
+  { name:'Sofia Lindqvist',initials:'SL', role:'Risk analyst',         plan:'Sentinel',          planColor:'#7F77DD', tracked:203,  logged:678,  alerts:7,  lastLogin:'2026-03-30' },
+  { name:'Kenji Watanabe', initials:'KW', role:'Mission planner',      plan:'Planetary Defense', planColor:'#D85A30', tracked:674,  logged:1893, alerts:18, lastLogin:'2026-03-28' },
+];
+
+function buildAccounts() {
+  let html = '';
+  ACCOUNTS.forEach(a => {
+    html += `<div class="acct-card">
+      <div class="acct-avatar" style="background:${a.planColor}22;color:${a.planColor};border:1.5px solid ${a.planColor}55">${a.initials}</div>
+      <div class="acct-info">
+        <div class="acct-name">${a.name}</div>
+        <div class="acct-role">${a.role}</div>
+        <div class="acct-stats">
+          <div class="acct-stat">${a.tracked.toLocaleString()}<span>Tracked</span></div>
+          <div class="acct-stat">${a.logged.toLocaleString()}<span>Logged</span></div>
+          <div class="acct-stat">${a.alerts}<span>Alerts</span></div>
+          <div class="acct-stat">${a.lastLogin}<span>Last login</span></div>
+        </div>
+        <span class="plan-badge" style="background:${a.planColor}22;color:${a.planColor};border:1px solid ${a.planColor}55">${a.plan}</span>
+      </div>
+    </div>`;
+  });
+  document.getElementById('acctGrid').innerHTML = html;
+
+  // Usage chart
+  destroyChart('usage');
+  charts['usage'] = new Chart(document.getElementById('usageChart'), {
+    type:'bar',
+    data:{
+      labels: ACCOUNTS.map(a=>a.initials),
+      datasets:[{ data:ACCOUNTS.map(a=>a.logged), backgroundColor:ACCOUNTS.map(a=>a.planColor+'88'), borderColor:ACCOUNTS.map(a=>a.planColor), borderWidth:1, borderRadius:4 }]
+    },
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7280'}}, y:{ticks:{color:'#6b7280'},grid:{color:'#252932'}} }, responsive:true }
+  });
+}
+
+// ── Chart.js dark defaults ─────────────────────────────────────────
+Chart.defaults.color = '#6b7280';
+Chart.defaults.borderColor = '#252932';
+Chart.defaults.plugins.tooltip.backgroundColor = '#1a1d25';
+Chart.defaults.plugins.tooltip.titleColor = '#e8eaf0';
+Chart.defaults.plugins.tooltip.bodyColor = '#9ca3af';
+Chart.defaults.plugins.tooltip.borderColor = '#252932';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+
+// ── Init ───────────────────────────────────────────────────────────
+document.getElementById('hdrDate').textContent = new Date('2026-03-31').toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+buildAccounts();
+fetchCAD();
+fetchSentry();
+</script>
+</body>
+</html>
