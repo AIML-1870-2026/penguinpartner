@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drug Safety Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    /* ── Warm, cozy palette ── */
+    --primary:        #3d7a6f;   /* sage teal */
+    --primary-dark:   #2c5f56;
+    --primary-light:  #56a193;
+    --primary-pale:   #e8f4f2;   /* very light teal tint */
+
+    --drug-a:         #3d7a6f;   /* teal */
+    --drug-b:         #c96442;   /* warm terracotta */
+    --drug-a-pale:    #e8f4f2;
+    --drug-b-pale:    #faeee9;
+
+    --bg:             #f7f4f0;   /* warm cream */
+    --bg-card:        #fffffe;
+    --bg-section:     #f0ece6;
+
+    --border:         #e0d8cf;
+    --border-light:   #ede8e2;
+
+    --text:           #3a322c;   /* warm dark brown */
+    --text-mid:       #6b5e56;
+    --text-muted:     #9a8e86;
+
+    --amber-bg:       #fff8e8;
+    --amber-border:   #e9a83a;
+    --amber-text:     #7a5a1a;
+
+    --red:            #b94040;
+    --red-bg:         #fdeaea;
+    --red-border:     #e8a0a0;
+
+    --info-bg:        #edf5f3;
+    --info-border:    #a8d4cd;
+    --info-text:      #2c5f56;
+
+    --radius:         14px;
+    --radius-sm:      8px;
+    --shadow:         0 2px 8px rgba(61,40,20,.08), 0 1px 3px rgba(61,40,20,.05);
+    --shadow-md:      0 4px 20px rgba(61,40,20,.12), 0 2px 6px rgba(61,40,20,.06);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* ── Modal ── */
+  #disclaimer-modal {
+    position: fixed; inset: 0;
+    background: rgba(40,28,20,.6);
+    backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  #disclaimer-modal.hidden { display: none; }
+  .modal-box {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 2.25rem;
+    max-width: 520px; width: 92%;
+    box-shadow: var(--shadow-md);
+    border-top: 5px solid var(--primary);
+  }
+  .modal-box h2 {
+    color: var(--primary-dark); margin-bottom: 1rem;
+    font-size: 1.3rem; font-weight: 800;
+  }
+  .modal-box p { line-height: 1.7; color: var(--text-mid); margin-bottom: 1.25rem; font-size: .95rem; }
+  .modal-box button {
+    background: var(--primary); color: #fff; border: none;
+    padding: .7rem 1.75rem; border-radius: 50px;
+    cursor: pointer; font-size: 1rem; font-weight: 700;
+    font-family: inherit; letter-spacing: .01em;
+    transition: background .15s;
+  }
+  .modal-box button:hover { background: var(--primary-dark); }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    color: #fff;
+    padding: 1.4rem 2rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .header-icon {
+    font-size: 2rem; line-height: 1;
+    background: rgba(255,255,255,.15);
+    border-radius: 12px; padding: .35rem .45rem;
+  }
+  header h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -.01em; }
+  header p { font-size: .85rem; opacity: .82; margin-top: .15rem; font-weight: 500; }
+
+  /* ── Disclaimer Banner ── */
+  #disclaimer-banner {
+    background: var(--amber-bg);
+    border-bottom: 2px solid var(--amber-border);
+    padding: .6rem 2rem;
+    font-size: .875rem;
+    color: var(--amber-text);
+    font-weight: 600;
+  }
+
+  /* ── Search Area ── */
+  .search-area {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+    padding: 1.75rem 2rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-light);
+  }
+  .drug-slot label {
+    font-weight: 700; color: var(--text); display: block;
+    margin-bottom: .45rem; font-size: .9rem;
+  }
+  .drug-slot label span { font-size: .78rem; font-weight: 500; color: var(--text-muted); margin-left: .35rem; }
+  .search-row { display: flex; gap: .5rem; }
+  .search-row input {
+    flex: 1;
+    border: 2px solid var(--border);
+    border-radius: 50px;
+    padding: .6rem 1.1rem;
+    font-size: .95rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .search-row input::placeholder { color: var(--text-muted); }
+  .search-row input:focus { border-color: var(--primary); background: var(--bg-card); }
+  .btn {
+    border: none; border-radius: 50px; padding: .6rem 1.2rem;
+    cursor: pointer; font-size: .9rem; font-weight: 700;
+    font-family: inherit; transition: background .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-ghost { background: var(--bg-section); color: var(--text-mid); }
+  .btn-ghost:hover { background: var(--border); }
+  .btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .btn-danger:hover { background: #fbd5d5; }
+
+  /* ── Overview Cards ── */
+  .overview-cards {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-light);
+  }
+  .card {
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.4rem;
+    background: var(--bg);
+    box-shadow: var(--shadow);
+    min-height: 160px;
+    transition: box-shadow .2s;
+  }
+  .card:hover { box-shadow: var(--shadow-md); }
+  .card.slot-a { border-top: 4px solid var(--drug-a); }
+  .card.slot-b { border-top: 4px solid var(--drug-b); }
+  .card h3 { font-size: 1.05rem; font-weight: 800; color: var(--primary-dark); margin-bottom: .85rem; }
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .85rem; }
+  .card-field dt { font-size: .73rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+  .card-field dd { font-size: .9rem; font-weight: 700; color: var(--text); margin-top: .1rem; }
+  .card-empty {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: .9rem; height: 100%;
+    font-style: italic;
+  }
+
+  /* ── Tabs ── */
+  .tabs-nav {
+    display: flex; gap: .25rem;
+    background: var(--bg-card);
+    border-bottom: 2px solid var(--border-light);
+    padding: 0 2rem;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tab-btn {
+    background: none; border: none;
+    padding: .85rem 1.4rem;
+    font-size: .9rem; font-weight: 600; font-family: inherit;
+    color: var(--text-muted); cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    transition: color .15s, background .15s;
+  }
+  .tab-btn:hover { color: var(--primary); background: var(--primary-pale); }
+  .tab-btn.active { color: var(--primary-dark); border-bottom-color: var(--primary); font-weight: 800; }
+
+  /* ── Tab Content ── */
+  .tab-content { display: none; padding: 2rem; }
+  .tab-content.active { display: block; }
+
+  /* ── Section headings ── */
+  .section-heading {
+    font-size: 1.15rem; font-weight: 800;
+    color: var(--primary-dark); margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .drug-section { margin-bottom: 2.75rem; }
+  .drug-section h3 {
+    font-size: 1rem; font-weight: 800; color: var(--text-mid);
+    margin-bottom: .85rem;
+    padding-bottom: .5rem;
+    border-bottom: 1.5px dashed var(--border);
+  }
+
+  /* ── Chart containers ── */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+  .chart-box {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.4rem;
+    box-shadow: var(--shadow);
+  }
+  .chart-box h4 { font-size: .88rem; font-weight: 700; color: var(--text-mid); margin-bottom: .85rem; }
+  .chart-wrap { position: relative; height: 250px; }
+  .chart-wrap canvas { max-height: 250px; }
+  .chart-toggle {
+    font-size: .75rem; color: var(--primary); background: none; border: none;
+    cursor: pointer; margin-top: .6rem; font-family: inherit; font-weight: 600;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .chart-table { display: none; margin-top: .6rem; overflow-x: auto; }
+  .chart-table table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  .chart-table th, .chart-table td { text-align: left; padding: .35rem .55rem; border-bottom: 1px solid var(--border-light); }
+  .chart-table th { background: var(--bg-section); font-weight: 700; color: var(--text-mid); }
+
+  /* ── Reports Table ── */
+  .reports-table-wrap {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.4rem;
+    box-shadow: var(--shadow);
+  }
+  .reports-table-wrap h4 { font-size: .88rem; font-weight: 700; color: var(--text-mid); margin-bottom: .85rem; }
+  .table-scroll { overflow-x: auto; }
+  table.reports { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  table.reports th {
+    background: var(--primary);
+    color: #fff; text-align: left;
+    padding: .6rem .85rem;
+    font-weight: 700; letter-spacing: .02em;
+  }
+  table.reports th:first-child { border-radius: var(--radius-sm) 0 0 0; }
+  table.reports th:last-child  { border-radius: 0 var(--radius-sm) 0 0; }
+  table.reports td { padding: .55rem .85rem; border-bottom: 1px solid var(--border-light); vertical-align: top; }
+  table.reports tr:hover td { background: var(--primary-pale); }
+  .pagination { display: flex; gap: .5rem; align-items: center; margin-top: .85rem; font-size: .85rem; font-weight: 600; }
+  .pagination button {
+    padding: .4rem .9rem; border: 1.5px solid var(--border);
+    border-radius: 50px; background: var(--bg-card);
+    cursor: pointer; font-family: inherit; font-weight: 700;
+    color: var(--text-mid); transition: background .15s, color .15s;
+  }
+  .pagination button:hover:not(:disabled) { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .pagination button:disabled { opacity: .35; cursor: default; }
+
+  /* ── Stat callout ── */
+  .stat-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.5rem;
+    flex: 1; min-width: 140px; text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .stat-card .stat-val { font-size: 1.85rem; font-weight: 800; color: var(--primary-dark); line-height: 1.1; }
+  .stat-card .stat-label { font-size: .78rem; font-weight: 600; color: var(--text-muted); margin-top: .3rem; }
+
+  /* ── Interaction panel ── */
+  .interaction-panel {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .interaction-note {
+    background: var(--info-bg);
+    border: 1.5px solid var(--info-border);
+    border-radius: var(--radius-sm);
+    padding: .9rem 1.1rem;
+    font-size: .875rem; font-weight: 600;
+    color: var(--info-text); margin-bottom: 1.25rem;
+  }
+
+  /* ── Loading / Error / Info states ── */
+  .loading { color: var(--text-muted); font-size: .9rem; padding: 1rem 0; font-style: italic; }
+  .error-msg {
+    color: var(--red); font-size: .875rem; font-weight: 600;
+    background: var(--red-bg); border: 1.5px solid var(--red-border);
+    border-radius: var(--radius-sm); padding: .7rem 1.1rem; margin-top: .5rem;
+  }
+  .info-msg {
+    color: var(--info-text); font-size: .875rem; font-weight: 600;
+    background: var(--info-bg); border: 1.5px solid var(--info-border);
+    border-radius: var(--radius-sm); padding: .7rem 1.1rem;
+  }
+
+  /* ── Footer ── */
+  footer {
+    background: var(--bg-section);
+    border-top: 1.5px solid var(--border-light);
+    padding: 1.4rem 2rem;
+    font-size: .8rem; font-weight: 500;
+    color: var(--text-muted);
+  }
+  footer a { color: var(--primary); font-weight: 700; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ── Info button ── */
+  .info-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 1.5px solid var(--primary);
+    background: none; color: var(--primary);
+    font-size: .72rem; font-weight: 800;
+    cursor: pointer; font-family: inherit; line-height: 1;
+    flex-shrink: 0; vertical-align: middle;
+    transition: background .15s, color .15s;
+  }
+  .info-btn:hover { background: var(--primary); color: #fff; }
+
+  /* ── Info modal (shared) ── */
+  #info-modal {
+    position: fixed; inset: 0;
+    background: rgba(40,28,20,.55);
+    backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1001;
+  }
+  #info-modal.hidden { display: none; }
+  .info-modal-box {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 2rem 2.25rem;
+    max-width: 580px; width: 92%;
+    box-shadow: var(--shadow-md);
+    border-top: 5px solid var(--primary);
+    max-height: 85vh; overflow-y: auto;
+  }
+  .info-modal-box h2 {
+    color: var(--primary-dark); font-size: 1.2rem; font-weight: 800;
+    margin-bottom: 1.1rem; line-height: 1.3;
+  }
+  .info-modal-box .info-body { color: var(--text-mid); font-size: .93rem; line-height: 1.75; }
+  .info-modal-box .info-body p { margin-bottom: .85rem; }
+  .info-modal-box .info-body p:last-child { margin-bottom: 0; }
+  .info-modal-box .info-body strong { color: var(--text); }
+  .info-modal-box .info-body ul { padding-left: 1.25rem; margin: .5rem 0 .85rem; }
+  .info-modal-box .info-body ul li { margin-bottom: .4rem; }
+  .info-modal-box .info-body .callout {
+    background: var(--info-bg); border: 1.5px solid var(--info-border);
+    border-radius: var(--radius-sm); padding: .75rem 1rem;
+    font-size: .875rem; color: var(--info-text); font-weight: 600;
+    margin-top: .75rem;
+  }
+  .info-modal-close {
+    margin-top: 1.5rem;
+    background: var(--primary); color: #fff; border: none;
+    padding: .6rem 1.6rem; border-radius: 50px;
+    cursor: pointer; font-size: .95rem; font-weight: 700;
+    font-family: inherit; transition: background .15s;
+  }
+  .info-modal-close:hover { background: var(--primary-dark); }
+
+  /* ── Section heading with info btn aligned ── */
+  .section-heading { align-items: center; }
+  .search-label-row { display: flex; align-items: center; gap: .4rem; margin-bottom: .45rem; }
+  .search-label-row label { font-weight: 700; color: var(--text); font-size: .9rem; margin-bottom: 0; }
+  .search-label-row span { font-size: .78rem; font-weight: 500; color: var(--text-muted); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .search-area, .overview-cards, .charts-row { grid-template-columns: 1fr; }
+    .tabs-nav { overflow-x: auto; }
+    .tab-btn { white-space: nowrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Disclaimer Modal ── -->
+<div id="disclaimer-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-box">
+    <h2 id="modal-title">⚠️ Educational Use Only</h2>
+    <p>This tool is for <strong>educational purposes only</strong>. It is <strong>not</strong> a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider with questions about your medications.</p>
+    <p>Data is sourced from the U.S. FDA OpenFDA public API. Report counts reflect <em>submitted reports</em> to FAERS — they do not confirm causation, and absence of reports does not indicate safety.</p>
+    <button id="modal-close" autofocus>I Understand — Continue</button>
+  </div>
+</div>
+
+<!-- ── Info Modal (shared) ── -->
+<div id="info-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
+  <div class="info-modal-box">
+    <h2 id="info-modal-title"></h2>
+    <div class="info-body" id="info-modal-body"></div>
+    <button class="info-modal-close" id="info-modal-close">Got it</button>
+  </div>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-icon" aria-hidden="true">💊</div>
+  <div>
+    <h1>Drug Safety Explorer</h1>
+    <p>Look up FDA adverse event data for any medication — educational use only</p>
+  </div>
+</header>
+
+<!-- ── Persistent Banner ── -->
+<div id="disclaimer-banner" role="note" aria-label="Educational disclaimer">
+  ⚠️ <strong>Educational purposes only.</strong> Not a substitute for professional medical advice. Always consult a qualified healthcare provider.
+</div>
+
+<!-- ── Search Area ── -->
+<div class="search-area">
+  <div class="drug-slot" id="slot-a-search">
+    <div class="search-label-row">
+      <label for="search-a">Drug A</label>
+      <span>(brand or generic name)</span>
+      <button class="info-btn" onclick="showInfo('labels')" aria-label="What drug labels tell you">ⓘ</button>
+    </div>
+    <div class="search-row">
+      <input type="text" id="search-a" placeholder="e.g. Tylenol, acetaminophen" aria-label="Search for Drug A" />
+      <button class="btn btn-primary" onclick="loadDrug('a')" aria-label="Search Drug A">Search</button>
+    </div>
+    <div id="error-a"></div>
+  </div>
+  <div class="drug-slot" id="slot-b-search">
+    <div class="search-label-row">
+      <label for="search-b">Drug B</label>
+      <span>(optional — for comparison)</span>
+      <button class="info-btn" onclick="showInfo('labels')" aria-label="What drug labels tell you">ⓘ</button>
+    </div>
+    <div class="search-row">
+      <input type="text" id="search-b" placeholder="e.g. Advil, ibuprofen" aria-label="Search for Drug B" />
+      <button class="btn btn-primary" onclick="loadDrug('b')" aria-label="Search Drug B">Search</button>
+    </div>
+    <div id="error-b"></div>
+  </div>
+</div>
+
+<!-- ── Overview Cards ── -->
+<div class="overview-cards">
+  <div class="card slot-a" id="card-a" aria-label="Drug A overview">
+    <div class="card-empty">Search for a drug above to see its overview.</div>
+  </div>
+  <div class="card slot-b" id="card-b" aria-label="Drug B overview">
+    <div class="card-empty">Search for a second drug to compare.</div>
+  </div>
+</div>
+
+<!-- ── Tabs ── -->
+<nav class="tabs-nav" role="tablist" aria-label="Main navigation tabs">
+  <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-adverse" id="tab-btn-adverse" onclick="switchTab('adverse')">Adverse Events</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-interactions" id="tab-btn-interactions" onclick="switchTab('interactions')">Interactions</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-compare" id="tab-btn-compare" onclick="switchTab('compare')">Compare</button>
+</nav>
+
+<!-- ── Tab: Adverse Events ── -->
+<div id="tab-adverse" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-adverse">
+  <p class="section-heading">📋 Adverse Events (FAERS) <button class="info-btn" onclick="showInfo('adverse')" aria-label="How to interpret adverse event data">ⓘ</button></p>
+  <div id="adverse-content">
+    <p class="info-msg">Search for a drug above to see its adverse event data.</p>
+  </div>
+</div>
+
+<!-- ── Tab: Interactions ── -->
+<div id="tab-interactions" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-interactions">
+  <p class="section-heading">🔗 Drug Interaction Signals <button class="info-btn" onclick="showInfo('interactions')" aria-label="Drug pairs with known dangerous interactions">ⓘ</button></p>
+  <div id="interactions-content">
+    <p class="info-msg">Load two drugs to see co-reported adverse event signals.</p>
+  </div>
+</div>
+
+<!-- ── Tab: Compare ── -->
+<div id="tab-compare" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-compare">
+  <p class="section-heading">⚖️ Side-by-Side Comparison</p>
+  <div id="compare-content">
+    <p class="info-msg">Load two drugs to activate the comparison view.</p>
+  </div>
+</div>
+
+<!-- ── Footer ── -->
+<footer>
+  <p>This product uses publicly available data from the U.S. Food and Drug Administration (FDA). FDA is not responsible for this product and does not endorse or recommend it.</p>
+  <p style="margin-top:.5rem;">Data source: <a href="https://open.fda.gov" target="_blank" rel="noopener">OpenFDA</a> · FAERS (FDA Adverse Event Reporting System) · For educational use only. · <button class="info-btn" onclick="showInfo('about')" aria-label="About this tool" style="width:16px;height:16px;font-size:.65rem">ⓘ</button> <button onclick="showInfo('about')" style="background:none;border:none;cursor:pointer;color:var(--primary);font-weight:700;font-family:inherit;font-size:.8rem;padding:0;text-decoration:underline">About this tool</button></p>
+</footer>
+
+<script>
+/* =========================================================
+   STATE
+   ========================================================= */
+const state = {
+  a: null,   // { label, term, totalEvents, seriousEvents, recall }
+  b: null,
+};
+
+const chartInstances = {};  // keyed by canvas id
+
+/* =========================================================
+   DISCLAIMER MODAL
+   ========================================================= */
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('disclaimer-modal').classList.add('hidden');
+});
+document.getElementById('disclaimer-modal').addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('disclaimer-modal').classList.add('hidden');
+});
+
+/* =========================================================
+   INFO / HELP MODALS
+   ========================================================= */
+const HELP = {
+  adverse: {
+    title: '📋 How to Interpret Adverse Event Data',
+    body: `
+      <p>Adverse event reports in this tool come from <strong>FAERS</strong> — the FDA Adverse Event Reporting System. FAERS collects reports submitted voluntarily by patients, caregivers, and healthcare professionals, as well as mandatory reports from drug manufacturers.</p>
+      <p>A few important things to keep in mind when reading the numbers:</p>
+      <ul>
+        <li><strong>Reports are not proof of cause.</strong> A report means someone experienced a symptom while taking a drug — not that the drug caused it. Many factors can be involved.</li>
+        <li><strong>Higher counts don't mean more dangerous.</strong> Popular medications like acetaminophen or ibuprofen have hundreds of thousands of reports simply because millions of people take them every day.</li>
+        <li><strong>Under-reporting is common.</strong> Most adverse events are never reported, so the numbers here represent only a fraction of real-world experiences.</li>
+        <li><strong>Serious ≠ common.</strong> A drug may have a small number of serious event reports while being widely considered safe when used correctly.</li>
+      </ul>
+      <div class="callout">Always discuss concerns about your medications with a doctor or pharmacist — they can put these numbers in the right context for you.</div>
+    `
+  },
+  recalls: {
+    title: '🔖 Understanding Recall Classifications',
+    body: `
+      <p>When the FDA recalls a drug, it assigns a <strong>class</strong> based on how serious the risk is to patients:</p>
+      <ul>
+        <li><strong>Class I — Most Serious:</strong> There is a reasonable probability that using the product will cause serious health consequences or death. Example: a contaminated injectable drug or a medication with the wrong dosage.</li>
+        <li><strong>Class II — Moderate Risk:</strong> The product may cause temporary or medically reversible adverse health consequences, but the probability of serious harm is low. Example: a drug with slightly degraded potency that could reduce effectiveness.</li>
+        <li><strong>Class III — Least Serious:</strong> The product is unlikely to cause any health consequences, but it violates FDA regulations. Example: minor labeling errors or packaging issues.</li>
+      </ul>
+      <p>Recalls can be initiated by the manufacturer voluntarily or at the FDA's request. The absence of a recall doesn't guarantee a drug is problem-free — it simply means no recall action has been recorded in this dataset.</p>
+      <div class="callout">The recall information shown here comes from the OpenFDA enforcement database. Check the FDA's official recall database for the most up-to-date information.</div>
+    `
+  },
+  interactions: {
+    title: '🔗 Drug Pairs with Known Dangerous Interactions',
+    body: `
+      <p>Some combinations of drugs are known to cause serious problems when taken together. Here are a few well-known examples:</p>
+      <ul>
+        <li><strong>Warfarin + NSAIDs</strong> (e.g., ibuprofen, naproxen): NSAIDs can increase bleeding risk when combined with the blood thinner warfarin, potentially leading to dangerous internal bleeding.</li>
+        <li><strong>MAO Inhibitors + Serotonergic Drugs</strong> (e.g., SSRIs, tramadol): This combination can trigger <em>serotonin syndrome</em> — a potentially life-threatening reaction causing agitation, rapid heart rate, and high temperature.</li>
+        <li><strong>Methotrexate + NSAIDs:</strong> NSAIDs reduce the kidneys' ability to clear methotrexate, causing it to build up to toxic levels in the body.</li>
+        <li><strong>Statins + Certain Antibiotics</strong> (e.g., clarithromycin): Some antibiotics block the enzyme that breaks down statins, raising statin levels and increasing the risk of muscle damage.</li>
+      </ul>
+      <p>The interaction signals in this tool are based on <em>co-occurrence</em> in FAERS reports — meaning both drugs appeared in the same report. This is a signal, not a confirmed interaction.</p>
+      <div class="callout">Never stop or change your medications based on this tool. Always consult your prescriber or pharmacist about drug interactions.</div>
+    `
+  },
+  labels: {
+    title: '🏷️ What Drug Labels Actually Tell You',
+    body: `
+      <p>The drug label (also called the <strong>prescribing information</strong> or <strong>package insert</strong>) is the official FDA-approved document that comes with every prescription drug. It's the most authoritative source of information about a medication.</p>
+      <p>Labels are reviewed and approved by the FDA <em>before</em> a drug reaches the market, and updated when new safety information emerges. They include:</p>
+      <ul>
+        <li><strong>Indications:</strong> What conditions the drug is approved to treat</li>
+        <li><strong>Dosage and administration:</strong> How much to take and how often</li>
+        <li><strong>Contraindications:</strong> When you should NOT take the drug (e.g., pregnancy, certain other conditions)</li>
+        <li><strong>Warnings and precautions:</strong> Known risks and important safety information</li>
+        <li><strong>Adverse reactions:</strong> Side effects observed during clinical trials</li>
+        <li><strong>Drug interactions:</strong> Other medications that may interact</li>
+      </ul>
+      <p>This tool pulls label data from OpenFDA, which indexes the same FDA-approved label content.</p>
+      <div class="callout">The label is written for healthcare providers. If you have questions about what it means for you specifically, ask your pharmacist — they're trained to translate it into plain language.</div>
+    `
+  },
+  reporting_bias: {
+    title: '📊 Why Some Drugs Have More Reports Than Others',
+    body: `
+      <p>The number of adverse event reports for a drug is heavily influenced by <strong>how widely it is used</strong> — not just by how dangerous it is.</p>
+      <p>Consider these factors:</p>
+      <ul>
+        <li><strong>Popularity effect:</strong> A medication taken by 50 million people will naturally generate far more reports than one taken by 50,000 people, even if both are equally safe per user.</li>
+        <li><strong>Media attention:</strong> When a drug makes the news, report volumes spike — more people become aware they can report and feel motivated to do so.</li>
+        <li><strong>Age of the drug:</strong> Newer drugs often see a surge of reports in their first few years on the market as awareness is highest. Older drugs may be under-reported.</li>
+        <li><strong>Mandatory reporting:</strong> Manufacturers are required to report adverse events, which adds a baseline of reports even for very safe drugs.</li>
+      </ul>
+      <p>This phenomenon is sometimes called <strong>reporting bias</strong>. A drug with 200,000 FAERS reports may be safer per dose than one with 500 reports, if the first drug is simply taken by far more people.</p>
+      <div class="callout">When comparing two drugs, look at the <em>serious event rate</em> (serious reports ÷ total reports) rather than raw counts — it's a more meaningful indicator.</div>
+    `
+  },
+  about: {
+    title: 'ℹ️ About This Tool',
+    body: `
+      <p><strong>Drug Safety Explorer</strong> is an educational tool that helps the general public explore publicly available FDA drug safety data. It is built for curiosity and awareness — not for medical decision-making.</p>
+      <p><strong>Where the data comes from:</strong></p>
+      <ul>
+        <li><strong>FAERS</strong> (FDA Adverse Event Reporting System): A database of voluntary adverse event reports submitted by patients, caregivers, and healthcare professionals.</li>
+        <li><strong>OpenFDA Drug Labels:</strong> FDA-approved prescribing information for medications on the U.S. market.</li>
+        <li><strong>FDA Enforcement Database:</strong> Records of drug recalls and enforcement actions.</li>
+      </ul>
+      <p><strong>What this tool cannot tell you:</strong></p>
+      <ul>
+        <li>Whether a specific drug is safe or appropriate for you</li>
+        <li>The cause of any adverse event</li>
+        <li>Whether you should start, stop, or change a medication</li>
+      </ul>
+      <p>All data is sourced from the <a href="https://open.fda.gov" target="_blank" rel="noopener" style="color:var(--primary);font-weight:700">OpenFDA public API</a>. The FDA is not responsible for this tool and does not endorse it.</p>
+      <div class="callout">If you have concerns about a medication, please speak with your doctor, nurse practitioner, or pharmacist. They are your best resource for personalized medical guidance.</div>
+    `
+  }
+};
+
+function showInfo(key) {
+  const help = HELP[key];
+  if (!help) return;
+  document.getElementById('info-modal-title').textContent = help.title;
+  document.getElementById('info-modal-body').innerHTML = help.body;
+  document.getElementById('info-modal').classList.remove('hidden');
+  document.getElementById('info-modal-close').focus();
+}
+
+document.getElementById('info-modal-close').addEventListener('click', () => {
+  document.getElementById('info-modal').classList.add('hidden');
+});
+document.getElementById('info-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('info-modal')) document.getElementById('info-modal').classList.add('hidden');
+});
+document.getElementById('info-modal').addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('info-modal').classList.add('hidden');
+});
+
+/* =========================================================
+   TAB SWITCHING
+   ========================================================= */
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-btn-' + name).classList.add('active');
+  document.getElementById('tab-btn-' + name).setAttribute('aria-selected','true');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+/* =========================================================
+   UTILITIES
+   ========================================================= */
+const BASE = 'https://api.fda.gov';
+const cache = {};
+
+function cacheKey(url) { return url; }
+
+async function apiFetch(url) {
+  if (cache[url]) return cache[url];
+  const cached = sessionStorage.getItem(url);
+  if (cached) {
+    cache[url] = JSON.parse(cached);
+    return cache[url];
+  }
+  const res = await fetch(url);
+  if (res.status === 429) throw new Error('TOO_MANY_REQUESTS');
+  if (res.status === 404) return null;  // no results
+  if (!res.ok) throw new Error('API_ERROR');
+  const data = await res.json();
+  cache[url] = data;
+  try { sessionStorage.setItem(url, JSON.stringify(data)); } catch(_) {}
+  return data;
+}
+
+function fmt(n) {
+  if (n === undefined || n === null) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+
+function setError(slot, msg) {
+  const el = document.getElementById('error-' + slot);
+  if (msg) {
+    el.innerHTML = `<div class="error-msg">${msg}</div>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+/* =========================================================
+   SEARCH / LOAD DRUG
+   ========================================================= */
+async function loadDrug(slot) {
+  const term = document.getElementById('search-' + slot).value.trim();
+  if (!term) return;
+  setError(slot, '');
+
+  const cardEl = document.getElementById('card-' + slot);
+  cardEl.innerHTML = '<div class="card-empty loading">Loading…</div>';
+
+  try {
+    // 1. Resolve drug name via label endpoint
+    const labelUrl = `${BASE}/drug/label.json?search=openfda.brand_name:"${encodeURIComponent(term)}"+OR+openfda.generic_name:"${encodeURIComponent(term)}"&limit=1`;
+    let labelData = await apiFetch(labelUrl);
+
+    if (!labelData || !labelData.results || labelData.results.length === 0) {
+      // try broader search
+      const broadUrl = `${BASE}/drug/label.json?search=${encodeURIComponent(term)}&limit=1`;
+      labelData = await apiFetch(broadUrl);
+    }
+
+    if (!labelData || !labelData.results || labelData.results.length === 0) {
+      setError(slot, `No results found for "${term}". Try a generic name or check spelling.`);
+      cardEl.innerHTML = '<div class="card-empty">No drug found.</div>';
+      return;
+    }
+
+    const label = labelData.results[0];
+    const openfda = label.openfda || {};
+    const brandNames = openfda.brand_name || [];
+    const genericNames = openfda.generic_name || [];
+    const manufacturers = openfda.manufacturer_name || [];
+
+    // Use the first brand name if available, else first generic
+    const resolvedTerm = (brandNames[0] || genericNames[0] || term).toUpperCase();
+
+    // 2–4. Fire overview counts + recall in parallel
+    const [eventsData, seriousData, recallData] = await Promise.all([
+      apiFetch(`${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(resolvedTerm)}"&limit=1`),
+      apiFetch(`${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(resolvedTerm)}"+AND+serious:1&limit=1`),
+      apiFetch(`${BASE}/drug/enforcement.json?search=product_description:"${encodeURIComponent(resolvedTerm)}"&sort=report_date:desc&limit=1`),
+    ]);
+    const totalEvents = eventsData?.meta?.results?.total ?? 0;
+    const seriousEvents = seriousData?.meta?.results?.total ?? 0;
+    const recall = recallData?.results?.[0];
+
+    state[slot] = { label, term: resolvedTerm, brandNames, genericNames, manufacturers, totalEvents, seriousEvents, recall };
+
+    renderOverviewCard(slot);
+    renderAdverseEvents();
+    renderCompare();
+    renderInteractions();
+
+  } catch (err) {
+    let msg = 'Unable to reach the FDA database. Please check your connection.';
+    if (err.message === 'TOO_MANY_REQUESTS') msg = 'Too many requests. Please wait a moment and try again.';
+    setError(slot, msg);
+    cardEl.innerHTML = '<div class="card-empty">Error loading drug.</div>';
+  }
+}
+
+/* ── Enter on search inputs ── */
+['a','b'].forEach(slot => {
+  document.getElementById('search-' + slot).addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadDrug(slot);
+  });
+});
+
+/* =========================================================
+   OVERVIEW CARD
+   ========================================================= */
+function renderOverviewCard(slot) {
+  const d = state[slot];
+  if (!d) return;
+  const cardEl = document.getElementById('card-' + slot);
+
+  const brand = d.brandNames.length ? d.brandNames.slice(0,2).join(', ') : '—';
+  const generic = d.genericNames.length ? d.genericNames.slice(0,2).join(', ') : '—';
+  const mfr = d.manufacturers.length ? d.manufacturers[0] : '—';
+  const recallText = d.recall
+    ? `${d.recall.product_description?.slice(0,40) ?? 'Yes'} (${d.recall.report_date ?? ''})`
+    : 'No recent recall found';
+
+  cardEl.innerHTML = `
+    <h3>${d.term}</h3>
+    <div class="card-grid">
+      <dl class="card-field"><dt>Brand name(s)</dt><dd>${brand}</dd></dl>
+      <dl class="card-field"><dt>Generic / ingredient</dt><dd>${generic}</dd></dl>
+      <dl class="card-field"><dt>Total AE reports</dt><dd>${fmt(d.totalEvents)}</dd></dl>
+      <dl class="card-field"><dt>Serious AE reports</dt><dd>${fmt(d.seriousEvents)}</dd></dl>
+      <dl class="card-field"><dt>Manufacturer</dt><dd>${mfr}</dd></dl>
+      <dl class="card-field"><dt>Recent recall <button class="info-btn" onclick="showInfo('recalls')" aria-label="Understanding recall classifications" style="font-size:.6rem;width:16px;height:16px">ⓘ</button></dt><dd style="font-size:.78rem;font-weight:400">${recallText}</dd></dl>
+    </div>
+    <button class="btn btn-danger" style="margin-top:1rem;font-size:.8rem;padding:.35rem .75rem" onclick="clearDrug('${slot}')" aria-label="Remove Drug ${slot.toUpperCase()}">✕ Remove Drug ${slot.toUpperCase()}</button>
+  `;
+}
+
+function clearDrug(slot) {
+  state[slot] = null;
+  document.getElementById('card-' + slot).innerHTML = `<div class="card-empty">${slot === 'a' ? 'Search for a drug above to see its overview.' : 'Search for a second drug to compare.'}</div>`;
+  document.getElementById('search-' + slot).value = '';
+  setError(slot, '');
+  renderAdverseEvents();
+  renderCompare();
+  renderInteractions();
+}
+
+/* =========================================================
+   ADVERSE EVENTS TAB
+   ========================================================= */
+function chartLoadingBox(title) {
+  return `<div class="chart-wrap" style="display:flex;align-items:center;justify-content:center;height:250px;color:var(--gray-600);font-size:.85rem">Loading…</div>`;
+}
+
+function renderAdverseEvents() {
+  const container = document.getElementById('adverse-content');
+  const slots = ['a','b'].filter(s => state[s]);
+
+  if (slots.length === 0) {
+    container.innerHTML = '<p class="info-msg">Search for a drug above to see its adverse event data.</p>';
+    return;
+  }
+
+  // Render shells immediately so the user sees structure right away
+  container.innerHTML = slots.map(s => adverseSectionShell(s)).join('');
+
+  // Fetch + populate each slot independently (they run in parallel)
+  slots.forEach(s => populateAdverseSection(s));
+}
+
+function adverseSectionShell(slot) {
+  const d = state[slot];
+  const color = slot === 'a' ? 'var(--drug-a)' : 'var(--drug-b)';
+  const term = d.term;
+  const rateVal = d.totalEvents > 0 ? ((d.seriousEvents/d.totalEvents)*100).toFixed(1)+'%' : '—';
+
+  return `
+    <div class="drug-section" id="adverse-section-${slot}">
+      <h3 style="border-left:4px solid ${color};padding-left:.5rem">Drug ${slot.toUpperCase()}: ${term}</h3>
+
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-val">${fmt(d.totalEvents)}</div><div class="stat-label">Total Reports <button class="info-btn" onclick="showInfo('reporting_bias')" aria-label="Why some drugs have more reports" style="vertical-align:middle">ⓘ</button></div></div>
+        <div class="stat-card"><div class="stat-val">${fmt(d.seriousEvents)}</div><div class="stat-label">Serious Reports</div></div>
+        <div class="stat-card"><div class="stat-val">${rateVal}</div><div class="stat-label">Serious Rate</div></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-box">
+          <h4>Top 15 Reported Reactions</h4>
+          <div id="reactions-wrap-${slot}">${chartLoadingBox()}</div>
+        </div>
+        <div class="chart-box">
+          <h4>Adverse Events Over Time (monthly)</h4>
+          <div id="timeline-wrap-${slot}">${chartLoadingBox()}</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-box">
+          <h4>Serious vs. Non-Serious</h4>
+          <div id="seriousness-wrap-${slot}">${chartLoadingBox()}</div>
+        </div>
+        <div class="chart-box">
+          <h4>Outcome Breakdown</h4>
+          <div id="outcomes-wrap-${slot}">${chartLoadingBox()}</div>
+        </div>
+      </div>
+
+      <div class="reports-table-wrap">
+        <h4>Detailed Reports</h4>
+        <div id="reports-wrap-${slot}"><div class="loading">Loading reports…</div></div>
+      </div>
+    </div>
+  `;
+}
+
+async function populateAdverseSection(slot) {
+  const d = state[slot];
+  const term = d.term;
+
+  // Date range for timeline: last 5 years only — avoids aggregating decades of data
+  const now = new Date();
+  const fiveYearsAgo = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+  const dateFrom = fiveYearsAgo.toISOString().slice(0,10).replace(/-/g,'');
+  const dateTo = now.toISOString().slice(0,10).replace(/-/g,'');
+  const dateFilter = `+AND+receivedate:[${dateFrom}+TO+${dateTo}]`;
+
+  // Fire all fetches in parallel
+  const outcomesKeys = ['seriousnessdeath','seriousnesshospitalization','seriousnesslifethreatening','seriousnessdisabling'];
+  const [reactData, timeData, reportsData, ...outcomeResults] = await Promise.all([
+    apiFetch(`${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(term)}"&count=patient.reaction.reactionmeddrapt.exact&limit=15`),
+    apiFetch(`${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(term)}"${dateFilter}&count=receivedate`),
+    apiFetch(`${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(term)}"&limit=25`),
+    ...outcomesKeys.map(k =>
+      apiFetch(`${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(term)}"+AND+${k}:1&limit=1`)
+    ),
+  ]);
+
+  // Bail out if this slot was cleared while fetching
+  if (!state[slot]) return;
+
+  const outcomeCounts = outcomeResults.map(r => r?.meta?.results?.total ?? 0);
+  state[slot]._reactData = reactData?.results ?? [];
+  state[slot]._timeData = timeData?.results ?? [];
+  // Sort client-side by receivedate desc (avoids expensive server-side sort)
+  state[slot]._reportsData = (reportsData?.results ?? []).sort((a,b) => (b.receivedate ?? 0) > (a.receivedate ?? 0) ? 1 : -1);
+  state[slot]._outcomeCounts = outcomeCounts;
+  state[slot]._reportsPage = 0;
+
+  const hasReactions = state[slot]._reactData.length > 0;
+  const hasReports = state[slot]._reportsData.length > 0;
+
+  if (!hasReactions && !hasReports) {
+    const sec = document.getElementById('adverse-section-' + slot);
+    if (sec) sec.innerHTML += '<p class="info-msg" style="margin-top:.5rem">No adverse event reports found for this drug in FAERS.<br><small>Note: absence of reports does not indicate safety.</small></p>';
+    return;
+  }
+
+  // Swap loading placeholders for actual charts
+  swapChartPlaceholder(`reactions-wrap-${slot}`,
+    `<div class="chart-wrap"><canvas id="reactions-${slot}" aria-label="Top reported reactions for ${term}"></canvas></div>
+     <button class="chart-toggle" onclick="toggleChartTable('reactions-tbl-${slot}')">View as table</button>
+     <div class="chart-table" id="reactions-tbl-${slot}"></div>`);
+  initReactionsChart(slot);
+
+  swapChartPlaceholder(`timeline-wrap-${slot}`,
+    `<div class="chart-wrap"><canvas id="timeline-${slot}" aria-label="Adverse event volume over time for ${term}"></canvas></div>
+     <button class="chart-toggle" onclick="toggleChartTable('timeline-tbl-${slot}')">View as table</button>
+     <div class="chart-table" id="timeline-tbl-${slot}"></div>`);
+  initTimelineChart(slot);
+
+  swapChartPlaceholder(`seriousness-wrap-${slot}`,
+    `<div class="chart-wrap"><canvas id="seriousness-${slot}" aria-label="Serious vs non-serious breakdown for ${term}"></canvas></div>
+     <button class="chart-toggle" onclick="toggleChartTable('seriousness-tbl-${slot}')">View as table</button>
+     <div class="chart-table" id="seriousness-tbl-${slot}"></div>`);
+  initSeriousnessPie(slot);
+
+  swapChartPlaceholder(`outcomes-wrap-${slot}`,
+    `<div class="chart-wrap"><canvas id="outcomes-${slot}" aria-label="Outcome breakdown for ${term}"></canvas></div>
+     <button class="chart-toggle" onclick="toggleChartTable('outcomes-tbl-${slot}')">View as table</button>
+     <div class="chart-table" id="outcomes-tbl-${slot}"></div>`);
+  initOutcomesChart(slot);
+
+  swapChartPlaceholder(`reports-wrap-${slot}`,
+    `<div class="table-scroll"><table class="reports" id="rpt-table-${slot}">
+       <thead><tr>
+         <th>Report Date</th><th>Age</th><th>Sex</th><th>Reactions</th><th>Outcome</th><th>Reporter</th>
+       </tr></thead>
+       <tbody id="rpt-body-${slot}"></tbody>
+     </table></div>
+     <div class="pagination" id="rpt-page-${slot}"></div>`);
+  initReportsTable(slot);
+}
+
+function swapChartPlaceholder(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+/* ── Chart init helpers ── */
+function initReactionsChart(slot) {
+  const data = state[slot]._reactData.slice(0, 15);
+  if (!data.length) return;
+  destroyChart('reactions-' + slot);
+  const color = slot === 'a' ? '#3d7a6f' : '#c96442';
+  const labels = data.map(r => capitalize(r.term));
+  const values = data.map(r => r.count);
+  const ctx = document.getElementById('reactions-' + slot);
+  chartInstances['reactions-' + slot] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Reports', data: values, backgroundColor: color, borderRadius: 4 }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) + ' reports' } } },
+      scales: { x: { ticks: { callback: v => fmt(v) } }, y: { ticks: { font: { size: 10 } } } }
+    }
+  });
+  // Accessible table
+  const tbl = document.getElementById('reactions-tbl-' + slot);
+  tbl.innerHTML = `<table><thead><tr><th>Reaction</th><th>Reports</th></tr></thead><tbody>${
+    data.map(r => `<tr><td>${capitalize(r.term)}</td><td>${fmt(r.count)}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+function initTimelineChart(slot) {
+  let data = state[slot]._timeData;
+  if (!data.length) return;
+  // API already filtered to last 5 years; just aggregate by month
+  const monthly = {};
+  data.forEach(r => {
+    const s = String(r.time);
+    if (s.length < 6) return;
+    const y = parseInt(s.slice(0,4)), m = parseInt(s.slice(4,6));
+    const key = `${y}-${String(m).padStart(2,'0')}`;
+    monthly[key] = (monthly[key] || 0) + r.count;
+  });
+  const keys = Object.keys(monthly).sort();
+  const values = keys.map(k => monthly[k]);
+  destroyChart('timeline-' + slot);
+  const color = slot === 'a' ? '#3d7a6f' : '#c96442';
+  const ctx = document.getElementById('timeline-' + slot);
+  chartInstances['timeline-' + slot] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: keys, datasets: [{ label: 'Reports', data: values, borderColor: color, backgroundColor: color + '22', tension: .3, pointRadius: 2 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { maxTicksLimit: 12, font: { size: 9 } } }, y: { ticks: { callback: v => fmt(v) } } }
+    }
+  });
+  const tbl = document.getElementById('timeline-tbl-' + slot);
+  tbl.innerHTML = `<table><thead><tr><th>Month</th><th>Reports</th></tr></thead><tbody>${
+    keys.map((k,i) => `<tr><td>${k}</td><td>${fmt(values[i])}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+function initSeriousnessPie(slot) {
+  const d = state[slot];
+  const serious = d.seriousEvents;
+  const nonSerious = Math.max(0, d.totalEvents - serious);
+  destroyChart('seriousness-' + slot);
+  const ctx = document.getElementById('seriousness-' + slot);
+  chartInstances['seriousness-' + slot] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Serious', 'Non-Serious'],
+      datasets: [{ data: [serious, nonSerious], backgroundColor: ['#b94040','#3d7a6f'], borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } }, tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) + ' reports' } } }
+    }
+  });
+  const tbl = document.getElementById('seriousness-tbl-' + slot);
+  tbl.innerHTML = `<table><thead><tr><th>Category</th><th>Reports</th></tr></thead><tbody>
+    <tr><td>Serious</td><td>${fmt(serious)}</td></tr>
+    <tr><td>Non-Serious</td><td>${fmt(nonSerious)}</td></tr>
+  </tbody></table>`;
+}
+
+function initOutcomesChart(slot) {
+  const counts = state[slot]._outcomeCounts;
+  const labels = ['Death','Hospitalization','Life-Threatening','Disabling'];
+  destroyChart('outcomes-' + slot);
+  const color = slot === 'a' ? '#3d7a6f' : '#c96442';
+  const ctx = document.getElementById('outcomes-' + slot);
+  chartInstances['outcomes-' + slot] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Reports', data: counts, backgroundColor: color, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { ticks: { callback: v => fmt(v) } } }
+    }
+  });
+  const tbl = document.getElementById('outcomes-tbl-' + slot);
+  tbl.innerHTML = `<table><thead><tr><th>Outcome</th><th>Reports</th></tr></thead><tbody>${
+    labels.map((l,i) => `<tr><td>${l}</td><td>${fmt(counts[i])}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+/* ── Reports table pagination ── */
+function initReportsTable(slot) {
+  state[slot]._reportsPage = 0;
+  renderReportsPage(slot);
+}
+
+function renderReportsPage(slot) {
+  const allReports = state[slot]._reportsData;
+  const page = state[slot]._reportsPage;
+  const perPage = 10;
+  const start = page * perPage;
+  const rows = allReports.slice(start, start + perPage);
+  const tbody = document.getElementById('rpt-body-' + slot);
+  if (!tbody) return;
+  tbody.innerHTML = rows.map(r => {
+    const date = formatDate(r.receivedate);
+    const age = r.patient?.patientage ? `${r.patient.patientage} ${r.patient.patientageunit === '801' ? 'yr' : ''}` : '—';
+    const sex = r.patient?.patientsex === '1' ? 'Male' : r.patient?.patientsex === '2' ? 'Female' : '—';
+    const reactions = (r.patient?.reaction ?? []).map(rx => capitalize(rx.reactionmeddrapt)).slice(0,3).join(', ') + ((r.patient?.reaction?.length ?? 0) > 3 ? '…' : '');
+    const outcome = outcomeLabel(r);
+    const reporter = reporterLabel(r.primarysource?.qualification);
+    return `<tr><td>${date}</td><td>${age}</td><td>${sex}</td><td>${reactions || '—'}</td><td>${outcome}</td><td>${reporter}</td></tr>`;
+  }).join('');
+
+  const pagEl = document.getElementById('rpt-page-' + slot);
+  const totalPages = Math.ceil(allReports.length / perPage);
+  pagEl.innerHTML = `
+    <button onclick="changePage('${slot}',-1)" ${page === 0 ? 'disabled' : ''} aria-label="Previous page">← Prev</button>
+    <span>Page ${page+1} of ${totalPages}</span>
+    <button onclick="changePage('${slot}',1)" ${page >= totalPages-1 ? 'disabled' : ''} aria-label="Next page">Next →</button>
+  `;
+}
+
+function changePage(slot, dir) {
+  const allReports = state[slot]._reportsData;
+  const totalPages = Math.ceil(allReports.length / 10);
+  state[slot]._reportsPage = Math.max(0, Math.min(totalPages-1, state[slot]._reportsPage + dir));
+  renderReportsPage(slot);
+}
+
+/* ── Toggle chart/table view ── */
+function toggleChartTable(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+/* =========================================================
+   INTERACTIONS TAB
+   ========================================================= */
+async function renderInteractions() {
+  const container = document.getElementById('interactions-content');
+  if (!state.a || !state.b) {
+    container.innerHTML = '<p class="info-msg">Load two drugs to see co-reported adverse event signals.</p>';
+    return;
+  }
+  container.innerHTML = '<div class="loading">Loading interaction signals…</div>';
+  try {
+    const termA = state.a.term;
+    const termB = state.b.term;
+
+    const coUrl = `${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(termA)}"+AND+patient.drug.medicinalproduct:"${encodeURIComponent(termB)}"&limit=1`;
+    const coData = await apiFetch(coUrl);
+    const coCount = coData?.meta?.results?.total ?? 0;
+
+    const coReactUrl = `${BASE}/drug/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(termA)}"+AND+patient.drug.medicinalproduct:"${encodeURIComponent(termB)}"&count=patient.reaction.reactionmeddrapt.exact&limit=10`;
+    const coReactData = await apiFetch(coReactUrl);
+    const reactions = coReactData?.results ?? [];
+
+    container.innerHTML = `
+      <div class="interaction-note">
+        ⚠️ <strong>Co-reporting does not prove a causal interaction.</strong> These signals are derived from FAERS co-occurrence data and are for awareness only. Always consult a healthcare professional.
+      </div>
+      <div class="interaction-panel">
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-val">${fmt(coCount)}</div><div class="stat-label">Co-reported adverse event reports</div></div>
+        </div>
+        ${coCount === 0 ? '<p class="info-msg">No co-reported adverse events found for this combination in FAERS.</p>' : `
+        <div class="chart-box" style="max-width:600px">
+          <h4>Top 10 Reactions from Co-Reported Events</h4>
+          <div class="chart-wrap"><canvas id="co-reactions" aria-label="Top reactions from co-reported events"></canvas></div>
+          <button class="chart-toggle" onclick="toggleChartTable('co-tbl')">View as table</button>
+          <div class="chart-table" id="co-tbl"></div>
+        </div>`}
+      </div>
+    `;
+
+    if (coCount > 0 && reactions.length > 0) {
+      const labels = reactions.map(r => capitalize(r.term));
+      const values = reactions.map(r => r.count);
+      destroyChart('co-reactions');
+      chartInstances['co-reactions'] = new Chart(document.getElementById('co-reactions'), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Reports', data: values, backgroundColor: '#7c5cbf', borderRadius: 4 }] },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { callback: v => fmt(v) } }, y: { ticks: { font: { size: 10 } } } }
+        }
+      });
+      document.getElementById('co-tbl').innerHTML = `<table><thead><tr><th>Reaction</th><th>Reports</th></tr></thead><tbody>${
+        reactions.map(r => `<tr><td>${capitalize(r.term)}</td><td>${fmt(r.count)}</td></tr>`).join('')
+      }</tbody></table>`;
+    }
+  } catch(e) {
+    container.innerHTML = '<p class="error-msg">Error loading interaction data.</p>';
+  }
+}
+
+/* =========================================================
+   COMPARE TAB
+   ========================================================= */
+async function renderCompare() {
+  const container = document.getElementById('compare-content');
+  if (!state.a || !state.b) {
+    container.innerHTML = '<p class="info-msg">Load two drugs to activate the comparison view.</p>';
+    return;
+  }
+  container.innerHTML = '<div class="loading">Building comparison…</div>';
+  try {
+    const sA = state.a;
+    const sB = state.b;
+    const rateA = sA.totalEvents > 0 ? ((sA.seriousEvents/sA.totalEvents)*100).toFixed(1) : '—';
+    const rateB = sB.totalEvents > 0 ? ((sB.seriousEvents/sB.totalEvents)*100).toFixed(1) : '—';
+
+    container.innerHTML = `
+      <div class="charts-row" style="margin-bottom:1.5rem">
+        <div class="card slot-a" id="cmp-card-a" aria-label="Drug A compare card"></div>
+        <div class="card slot-b" id="cmp-card-b" aria-label="Drug B compare card"></div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-val" style="color:var(--drug-a)">${rateA}%</div><div class="stat-label">Serious Rate — ${sA.term}</div></div>
+        <div class="stat-card"><div class="stat-val" style="color:var(--drug-b)">${rateB}%</div><div class="stat-label">Serious Rate — ${sB.term}</div></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-box" style="grid-column:1/-1">
+          <h4>Adverse Events Over Time — ${sA.term} vs ${sB.term}</h4>
+          <div class="chart-wrap" style="height:280px"><canvas id="cmp-timeline" aria-label="Comparison timeline chart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-box" style="grid-column:1/-1">
+          <h4>Top 10 Reactions Comparison</h4>
+          <div class="chart-wrap" style="height:300px"><canvas id="cmp-reactions" aria-label="Comparison reactions chart"></canvas></div>
+          <button class="chart-toggle" onclick="toggleChartTable('cmp-react-tbl')">View as table</button>
+          <div class="chart-table" id="cmp-react-tbl"></div>
+        </div>
+      </div>
+    `;
+
+    // Clone overview info into compare cards
+    renderCompareCard('a');
+    renderCompareCard('b');
+
+    // Timeline comparison
+    initCompareTimeline();
+    initCompareReactions();
+  } catch(e) {
+    container.innerHTML = '<p class="error-msg">Error building comparison.</p>';
+  }
+}
+
+function renderCompareCard(slot) {
+  const d = state[slot];
+  const el = document.getElementById('cmp-card-' + slot);
+  if (!el || !d) return;
+  el.innerHTML = `
+    <h3>${d.term}</h3>
+    <div class="card-grid">
+      <dl class="card-field"><dt>Brand</dt><dd>${d.brandNames[0] ?? '—'}</dd></dl>
+      <dl class="card-field"><dt>Generic</dt><dd>${d.genericNames[0] ?? '—'}</dd></dl>
+      <dl class="card-field"><dt>Total AE Reports</dt><dd>${fmt(d.totalEvents)}</dd></dl>
+      <dl class="card-field"><dt>Serious Reports</dt><dd>${fmt(d.seriousEvents)}</dd></dl>
+    </div>
+  `;
+}
+
+function initCompareTimeline() {
+  const cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - 5);
+
+  function toMonthly(rawData) {
+    const monthly = {};
+    (rawData || []).forEach(r => {
+      const s = String(r.time);
+      if (s.length < 6) return;
+      const y = parseInt(s.slice(0,4)), m = parseInt(s.slice(4,6));
+      const d = new Date(y, m-1, 1);
+      if (d < cutoff) return;
+      const key = `${y}-${String(m).padStart(2,'0')}`;
+      monthly[key] = (monthly[key] || 0) + r.count;
+    });
+    return monthly;
+  }
+
+  const mA = toMonthly(state.a._timeData);
+  const mB = toMonthly(state.b._timeData);
+  const allKeys = [...new Set([...Object.keys(mA), ...Object.keys(mB)])].sort();
+  destroyChart('cmp-timeline');
+  const ctx = document.getElementById('cmp-timeline');
+  chartInstances['cmp-timeline'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: allKeys,
+      datasets: [
+        { label: state.a.term, data: allKeys.map(k => mA[k] || 0), borderColor: '#3d7a6f', backgroundColor: '#3d7a6f22', tension: .3, pointRadius: 2 },
+        { label: state.b.term, data: allKeys.map(k => mB[k] || 0), borderColor: '#c96442', backgroundColor: '#c9644222', tension: .3, pointRadius: 2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: { x: { ticks: { maxTicksLimit: 12, font: { size: 9 } } }, y: { ticks: { callback: v => fmt(v) } } }
+    }
+  });
+}
+
+function initCompareReactions() {
+  const rA = (state.a._reactData || []).slice(0, 10);
+  const rB = (state.b._reactData || []).slice(0, 10);
+
+  // Build union of top labels
+  const setA = new Map(rA.map(r => [r.term, r.count]));
+  const setB = new Map(rB.map(r => [r.term, r.count]));
+  const allTerms = [...new Set([...setA.keys(), ...setB.keys()])].slice(0, 10);
+  const labels = allTerms.map(capitalize);
+
+  destroyChart('cmp-reactions');
+  const ctx = document.getElementById('cmp-reactions');
+  chartInstances['cmp-reactions'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: state.a.term, data: allTerms.map(t => setA.get(t) || 0), backgroundColor: '#3d7a6f', borderRadius: 3 },
+        { label: state.b.term, data: allTerms.map(t => setB.get(t) || 0), backgroundColor: '#c96442', borderRadius: 3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { ticks: { callback: v => fmt(v) } }, x: { ticks: { font: { size: 9 } } } }
+    }
+  });
+
+  const tbl = document.getElementById('cmp-react-tbl');
+  tbl.innerHTML = `<table><thead><tr><th>Reaction</th><th>${state.a.term}</th><th>${state.b.term}</th></tr></thead><tbody>${
+    allTerms.map((t,i) => `<tr><td>${labels[i]}</td><td>${fmt(setA.get(t)||0)}</td><td>${fmt(setB.get(t)||0)}</td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+/* =========================================================
+   LABEL HELPERS
+   ========================================================= */
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function formatDate(s) {
+  if (!s) return '—';
+  s = String(s);
+  if (s.length === 8) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  return s;
+}
+
+function outcomeLabel(r) {
+  if (r.seriousnessdeath === '1') return 'Death';
+  if (r.seriousnesslifethreatening === '1') return 'Life-threatening';
+  if (r.seriousnesshospitalization === '1') return 'Hospitalization';
+  if (r.seriousnessdisabling === '1') return 'Disabling';
+  if (r.serious === '1' || r.serious === 1) return 'Serious';
+  return 'Non-serious';
+}
+
+function reporterLabel(q) {
+  const map = { '1':'Physician','2':'Pharmacist','3':'Other health professional','4':'Lawyer','5':'Consumer / non-health professional' };
+  return map[String(q)] || '—';
+}
+</script>
+</body>
+</html>
