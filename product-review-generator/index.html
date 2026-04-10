@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Product Review Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --violet: #7c3aed;
+      --violet-dark: #6d28d9;
+      --violet-light: #ede9fe;
+      --amber: #f59e0b;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(160deg, #faf5ff 0%, #f5f3ff 40%, #fdf4ff 100%);
+      min-height: 100vh;
+    }
+
+    /* ── Slider ─────────────────────────────────── */
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+      background: linear-gradient(to right, var(--violet) var(--fill, 50%), #ddd6fe var(--fill, 50%));
+      transition: background 0.1s;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--violet);
+      border: 3px solid white;
+      box-shadow: 0 1px 6px rgba(124,58,237,0.35);
+      cursor: pointer;
+    }
+    .slider::-moz-range-thumb {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--violet);
+      border: 3px solid white;
+      box-shadow: 0 1px 6px rgba(124,58,237,0.35);
+      cursor: pointer;
+    }
+    .tone-slider {
+      background: linear-gradient(to right,
+        #ef4444 0%,
+        #f97316 25%,
+        #a3a3a3 50%,
+        #22c55e 75%,
+        #7c3aed 100%
+      );
+      background-size: 100% 6px;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .tone-slider::-webkit-slider-thumb { background: #1e1b4b; }
+    .tone-slider::-moz-range-thumb    { background: #1e1b4b; }
+
+    /* ── Stars ──────────────────────────────────── */
+    .star-btn { cursor: pointer; transition: transform 0.1s; }
+    .star-btn:hover { transform: scale(1.2); }
+
+    /* ── Review markdown output ─────────────────── */
+    .review-output h1, .review-output h2, .review-output h3 { font-weight: 700; margin-bottom: 0.5rem; color: #1e1b4b; }
+    .review-output p  { margin-bottom: 0.75rem; line-height: 1.7; }
+    .review-output ul, .review-output ol { margin-left: 1.25rem; margin-bottom: 0.75rem; list-style: disc; }
+    .review-output strong { font-weight: 700; }
+    .review-output em { font-style: italic; }
+
+    /* ── Spinner ────────────────────────────────── */
+    .spinner { display: inline-block; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Tabs ───────────────────────────────────── */
+    .tab-btn { transition: all 0.18s; }
+    .tab-btn.active {
+      background: var(--violet);
+      color: white;
+      box-shadow: 0 2px 8px rgba(124,58,237,0.3);
+    }
+
+    /* ── Generate button gradient ───────────────── */
+    .btn-generate {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      transition: background 0.2s, opacity 0.2s;
+    }
+    .btn-generate:hover:not(:disabled) {
+      background: linear-gradient(135deg, #6d28d9, #9333ea);
+    }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Card ───────────────────────────────────── */
+    .card {
+      background: white;
+      border: 1px solid #ede9fe;
+      border-radius: 1.25rem;
+      box-shadow: 0 2px 16px rgba(124,58,237,0.06);
+    }
+
+    /* ── History card max height ────────────────── */
+    .history-body { max-height: 260px; overflow-y: auto; }
+    .history-body::-webkit-scrollbar { width: 4px; }
+    .history-body::-webkit-scrollbar-thumb { background: #ddd6fe; border-radius: 2px; }
+
+    /* ── Input / select focus ring ──────────────── */
+    .field {
+      background: #faf5ff;
+      border: 1px solid #ddd6fe;
+      border-radius: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field:focus { border-color: var(--violet); }
+  </style>
+</head>
+<body class="text-slate-800">
+
+  <div class="max-w-3xl mx-auto px-4 py-10">
+
+    <!-- ── Header ──────────────────────────────────────────── -->
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-extrabold tracking-tight" style="background:linear-gradient(135deg,#6d28d9,#a855f7,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        Product Review Generator
+      </h1>
+      <p class="text-slate-500 mt-2 text-sm">AI-powered · Streaming · OpenAI · No backend required</p>
+    </div>
+
+    <!-- ── Privacy notice ──────────────────────────────────── -->
+    <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-2.5 rounded-xl mb-6 text-center">
+      🔒 <strong>API key held in memory only.</strong> Never written to localStorage, cookies, or sent anywhere except <code>api.openai.com</code>.
+    </div>
+
+    <!-- ── API Key ──────────────────────────────────────────── -->
+    <div class="card p-5 mb-6">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+        <span class="text-xs font-bold uppercase tracking-widest text-emerald-600">OpenAI API Key</span>
+        <span id="key-status" class="ml-auto text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500">no key set</span>
+      </div>
+      <div class="flex gap-2">
+        <input id="api-key-input" type="password" placeholder="sk-proj-…" class="field"
+          onkeydown="if(event.key==='Enter') setApiKey()">
+        <button onclick="setApiKey()"
+          class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold transition-colors shrink-0">
+          Set Key
+        </button>
+      </div>
+      <p id="key-error" class="text-red-500 text-xs mt-2 hidden"></p>
+    </div>
+
+    <!-- ── Tab switcher ─────────────────────────────────────── -->
+    <div class="flex gap-2 mb-5 bg-violet-50 border border-violet-100 rounded-2xl p-1.5 w-fit">
+      <button id="tab-generate" class="tab-btn active px-5 py-2 rounded-xl text-sm font-semibold text-slate-600"
+        onclick="switchTab('generate')">Generate</button>
+      <button id="tab-history" class="tab-btn px-5 py-2 rounded-xl text-sm font-semibold text-slate-600"
+        onclick="switchTab('history')">
+        Review History
+        <span id="history-badge" class="ml-1.5 text-xs bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full hidden"></span>
+      </button>
+    </div>
+
+    <!-- ══════════════════ GENERATE TAB ══════════════════════ -->
+    <div id="pane-generate">
+
+      <!-- Form -->
+      <div class="card p-6 mb-5">
+        <h2 class="text-base font-bold text-slate-700 mb-5">Review Settings</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <!-- Product Name -->
+          <div class="sm:col-span-2">
+            <label class="label">Product Name <span class="text-red-400">*</span></label>
+            <input id="product-name" type="text" placeholder="e.g. Sony WH-1000XM5 Headphones" class="field">
+          </div>
+
+          <!-- Category -->
+          <div>
+            <label class="label">Category</label>
+            <select id="product-category" class="field">
+              <option>Electronics</option>
+              <option>Clothing &amp; Apparel</option>
+              <option>Home &amp; Kitchen</option>
+              <option>Beauty &amp; Personal Care</option>
+              <option>Sports &amp; Outdoors</option>
+              <option>Books &amp; Media</option>
+              <option>Toys &amp; Games</option>
+              <option>Food &amp; Grocery</option>
+              <option>Automotive</option>
+              <option>Health &amp; Wellness</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <!-- Model -->
+          <div>
+            <label class="label">Model</label>
+            <select id="model-select" class="field">
+              <option value="gpt-4o" selected>GPT-4o</option>
+              <option value="gpt-4o-2024-11-20">GPT-4o (2024-11-20)</option>
+              <option value="gpt-4o-2024-08-06">GPT-4o (2024-08-06)</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="gpt-4o-mini-2024-07-18">GPT-4o Mini (2024-07-18)</option>
+              <option value="o1">o1</option>
+              <option value="o1-mini">o1 Mini</option>
+              <option value="o1-preview">o1 Preview</option>
+              <option value="o3-mini">o3 Mini</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-4">GPT-4</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            </select>
+          </div>
+
+          <!-- Star Rating -->
+          <div>
+            <label class="label">Star Rating</label>
+            <div id="star-rating" class="flex gap-1 mt-1.5" role="radiogroup">
+              <span class="star-btn text-2xl" onclick="setRating(1)">★</span>
+              <span class="star-btn text-2xl" onclick="setRating(2)">★</span>
+              <span class="star-btn text-2xl" onclick="setRating(3)">★</span>
+              <span class="star-btn text-2xl" onclick="setRating(4)">★</span>
+              <span class="star-btn text-2xl" onclick="setRating(5)">★</span>
+            </div>
+          </div>
+
+          <!-- spacer on small screens -->
+          <div class="hidden sm:block"></div>
+
+          <!-- Tone Slider -->
+          <div class="sm:col-span-2">
+            <div class="flex items-center justify-between mb-2">
+              <label class="label mb-0">Review Tone</label>
+              <span id="tone-label" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-700">Balanced</span>
+            </div>
+            <input id="tone-slider" type="range" min="0" max="8" value="4"
+              class="slider tone-slider" oninput="onToneSlide(this)">
+            <div class="flex justify-between text-xs text-slate-400 mt-1.5 px-0.5">
+              <span>Scathing</span>
+              <span>Critical</span>
+              <span>Balanced</span>
+              <span>Enthusiastic</span>
+              <span>Ecstatic</span>
+            </div>
+          </div>
+
+          <!-- Length Slider -->
+          <div class="sm:col-span-2">
+            <div class="flex items-center justify-between mb-2">
+              <label class="label mb-0">Review Length</label>
+              <span id="length-label" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-700">~150 words</span>
+            </div>
+            <input id="length-slider" type="range" min="50" max="500" step="25" value="150"
+              class="slider" oninput="onLengthSlide(this)">
+            <div class="flex justify-between text-xs text-slate-400 mt-1.5 px-0.5">
+              <span>50 words</span>
+              <span>Brief</span>
+              <span>Medium</span>
+              <span>Detailed</span>
+              <span>500 words</span>
+            </div>
+          </div>
+
+          <!-- Key Features -->
+          <div class="sm:col-span-2">
+            <label class="label">Key Features <span class="text-slate-400 font-normal normal-case">(optional)</span></label>
+            <textarea id="key-features" rows="2" placeholder="e.g. noise cancellation, 30-hour battery, foldable design"
+              class="field resize-none"></textarea>
+          </div>
+
+          <!-- Reviewer Persona -->
+          <div class="sm:col-span-2">
+            <label class="label">Reviewer Persona <span class="text-slate-400 font-normal normal-case">(optional)</span></label>
+            <input id="reviewer-persona" type="text" placeholder="e.g. tech-savvy parent, budget shopper, frequent traveler" class="field">
+          </div>
+
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-6 flex gap-3">
+          <button id="generate-btn" onclick="generateReview()"
+            class="btn-generate flex-1 py-3 text-white rounded-xl font-bold text-sm">
+            Generate Review
+          </button>
+          <button onclick="clearAll()"
+            class="px-5 py-3 bg-violet-50 hover:bg-violet-100 text-violet-600 rounded-xl font-semibold text-sm transition-colors">
+            Clear
+          </button>
+        </div>
+
+        <p id="form-error" class="text-red-500 text-xs mt-2 hidden"></p>
+      </div>
+
+      <!-- API Error -->
+      <div id="api-error-panel" class="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl mb-5 hidden"></div>
+
+      <!-- Output -->
+      <div id="output-section" class="card p-6 hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-slate-700">Generated Review</h2>
+            <span id="output-stars" class="text-amber-400 text-sm"></span>
+          </div>
+          <div class="flex gap-2">
+            <button id="copy-btn" onclick="copyReview()"
+              class="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-xs font-semibold transition-colors">
+              Copy
+            </button>
+            <button id="regenerate-btn" onclick="generateReview()"
+              class="px-3 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg text-xs font-semibold transition-colors">
+              Regenerate
+            </button>
+          </div>
+        </div>
+        <div id="output-content"
+          class="review-output text-sm text-slate-700 leading-relaxed border-t border-violet-50 pt-4 min-h-[60px]">
+        </div>
+      </div>
+
+    </div><!-- /pane-generate -->
+
+    <!-- ══════════════════ HISTORY TAB ════════════════════════ -->
+    <div id="pane-history" class="hidden">
+
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-slate-500">All reviews from this session</p>
+        <button onclick="clearHistory()"
+          class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg text-xs font-semibold transition-colors">
+          Clear All
+        </button>
+      </div>
+
+      <div id="history-empty" class="card p-10 text-center text-slate-400 text-sm hidden">
+        No reviews yet — generate one on the Generate tab.
+      </div>
+
+      <div id="history-cards" class="flex flex-col gap-4"></div>
+
+    </div><!-- /pane-history -->
+
+  </div><!-- /max-w-3xl -->
+
+  <style>
+    .label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #6b7280;
+      margin-bottom: 0.35rem;
+    }
+  </style>
+
+  <script>
+    // ── Constants ────────────────────────────────────────────────
+    const TONE_LABELS = [
+      'Scathing', 'Very Critical', 'Critical', 'Skeptical',
+      'Balanced', 'Positive', 'Enthusiastic', 'Very Enthusiastic', 'Ecstatic'
+    ];
+
+    const SYSTEM_PROMPT = `You are a helpful assistant that writes realistic, human-sounding product reviews.
+Write in the voice of an everyday consumer. Use markdown formatting where appropriate
+(e.g. **bold** for emphasis, short paragraphs, occasional bullet lists). Do not
+include a title or star rating line — only the review body itself.`;
+
+    const HISTORY_KEY = 'prg_history';
+    const MAX_HISTORY = 10;
+
+    // ── State ────────────────────────────────────────────────────
+    let apiKey = null;
+    let rating = 4;
+
+    // ── Init ─────────────────────────────────────────────────────
+    setRating(4);
+    updateSliderFill(document.getElementById('length-slider'));
+    renderHistoryBadge();
+
+    // ── Tab switching ────────────────────────────────────────────
+    function switchTab(tab) {
+      const isGenerate = tab === 'generate';
+      document.getElementById('pane-generate').classList.toggle('hidden', !isGenerate);
+      document.getElementById('pane-history').classList.toggle('hidden', isGenerate);
+      document.getElementById('tab-generate').classList.toggle('active', isGenerate);
+      document.getElementById('tab-history').classList.toggle('active', !isGenerate);
+      if (!isGenerate) renderHistoryPane();
+    }
+
+    // ── API Key ──────────────────────────────────────────────────
+    function setApiKey() {
+      const val   = document.getElementById('api-key-input').value.trim();
+      const errEl = document.getElementById('key-error');
+      const stEl  = document.getElementById('key-status');
+
+      if (!val) { showInline(errEl, 'Please enter an API key.'); return; }
+      if (!val.startsWith('sk-')) { showInline(errEl, 'Key should start with "sk-". Double-check your OpenAI key.'); return; }
+
+      errEl.classList.add('hidden');
+      apiKey = val;
+      document.getElementById('api-key-input').value = '';
+      stEl.textContent  = '✓ key set';
+      stEl.className    = 'ml-auto text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600';
+    }
+
+    // ── Star Rating ──────────────────────────────────────────────
+    function setRating(value) {
+      rating = value;
+      document.querySelectorAll('#star-rating .star-btn').forEach((s, i) => {
+        s.style.color = i < value ? '#f59e0b' : '#d1d5db';
+      });
+    }
+
+    // ── Sliders ──────────────────────────────────────────────────
+    function onToneSlide(el) {
+      document.getElementById('tone-label').textContent = TONE_LABELS[+el.value];
+    }
+
+    function onLengthSlide(el) {
+      document.getElementById('length-label').textContent = `~${el.value} words`;
+      updateSliderFill(el);
+    }
+
+    function updateSliderFill(el) {
+      const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+      el.style.setProperty('--fill', pct + '%');
+    }
+
+    // ── Prompt builder ───────────────────────────────────────────
+    function buildUserPrompt(form) {
+      let p = `Write a product review of approximately ${form.wordCount} words for "${form.productName}" in the ${form.category} category.\n`;
+      p += `The review should reflect a ${form.rating}-star experience and have a ${form.tone} tone.`;
+      if (form.persona)  p += `\nWrite from the perspective of a ${form.persona}.`;
+      if (form.features) p += `\nMake sure to mention the following: ${form.features}.`;
+      return p;
+    }
+
+    // ── Generate ─────────────────────────────────────────────────
+    async function generateReview() {
+      if (!apiKey) { showFormError('Please set your OpenAI API key above first.'); return; }
+
+      const productName = document.getElementById('product-name').value.trim();
+      if (!productName) { showFormError('Product Name is required.'); return; }
+
+      hideFormError();
+      hideApiError();
+
+      const toneIdx = +document.getElementById('tone-slider').value;
+      const form = {
+        productName,
+        category  : document.getElementById('product-category').value,
+        model     : document.getElementById('model-select').value,
+        rating,
+        tone      : TONE_LABELS[toneIdx],
+        toneIdx,
+        wordCount : +document.getElementById('length-slider').value,
+        features  : document.getElementById('key-features').value.trim(),
+        persona   : document.getElementById('reviewer-persona').value.trim(),
+        ts        : Date.now()
+      };
+
+      // Show output
+      const outSection = document.getElementById('output-section');
+      outSection.classList.remove('hidden');
+      document.getElementById('output-stars').textContent = '★'.repeat(form.rating) + '☆'.repeat(5 - form.rating);
+
+      // Disable controls
+      const genBtn   = document.getElementById('generate-btn');
+      const regenBtn = document.getElementById('regenerate-btn');
+      genBtn.disabled = regenBtn.disabled = true;
+      genBtn.textContent = 'Generating…';
+
+      const outEl = document.getElementById('output-content');
+      outEl.innerHTML = '<span class="text-slate-400"><span class="spinner">⟳</span> Generating review…</span>';
+
+      let buffer = '';
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body   : JSON.stringify({
+            model   : form.model,
+            stream  : true,
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'user',   content: buildUserPrompt(form) }
+            ]
+          })
+        });
+
+        if (res.status === 401) throw new Error('Invalid API key — please re-enter your OpenAI key.');
+        if (res.status === 429) throw new Error('Rate limit reached — wait a moment and try again.');
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.error?.message || `API error: HTTP ${res.status}`);
+        }
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+        outEl.innerHTML = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          for (const line of decoder.decode(value, { stream: true }).split('\n')) {
+            const t = line.trim();
+            if (!t || t === 'data: [DONE]' || !t.startsWith('data: ')) continue;
+            try {
+              const delta = JSON.parse(t.slice(6)).choices?.[0]?.delta?.content;
+              if (delta) { buffer += delta; outEl.innerHTML = marked.parse(buffer); }
+            } catch { /* skip */ }
+          }
+        }
+
+        saveToHistory(form, buffer);
+        renderHistoryBadge();
+
+      } catch (err) {
+        outEl.innerHTML = '';
+        showApiError(err.message || 'An unexpected error occurred. Please try again.');
+      } finally {
+        genBtn.disabled = regenBtn.disabled = false;
+        genBtn.textContent = 'Generate Review';
+      }
+    }
+
+    // ── Copy ─────────────────────────────────────────────────────
+    function copyReview() {
+      navigator.clipboard.writeText(document.getElementById('output-content').innerText).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+      });
+    }
+
+    // ── Clear form ───────────────────────────────────────────────
+    function clearAll() {
+      document.getElementById('product-name').value     = '';
+      document.getElementById('product-category').value = 'Electronics';
+      document.getElementById('model-select').value     = 'gpt-4o';
+      document.getElementById('key-features').value     = '';
+      document.getElementById('reviewer-persona').value = '';
+      document.getElementById('tone-slider').value      = '4';
+      document.getElementById('length-slider').value    = '150';
+      onToneSlide(document.getElementById('tone-slider'));
+      onLengthSlide(document.getElementById('length-slider'));
+      setRating(4);
+      document.getElementById('output-section').classList.add('hidden');
+      document.getElementById('output-content').innerHTML = '';
+      hideFormError();
+      hideApiError();
+    }
+
+    // ── Errors ───────────────────────────────────────────────────
+    function showFormError(msg) { showInline(document.getElementById('form-error'), msg); }
+    function hideFormError()    { document.getElementById('form-error').classList.add('hidden'); }
+    function showApiError(msg)  {
+      const el = document.getElementById('api-error-panel');
+      el.textContent = '⚠️ ' + msg;
+      el.classList.remove('hidden');
+    }
+    function hideApiError() { document.getElementById('api-error-panel').classList.add('hidden'); }
+    function showInline(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+
+    // ── History ──────────────────────────────────────────────────
+    function getHistory() {
+      try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY) || '[]'); }
+      catch { return []; }
+    }
+
+    function saveToHistory(form, text) {
+      const h = getHistory();
+      h.unshift({ form, text, ts: form.ts });
+      if (h.length > MAX_HISTORY) h.pop();
+      sessionStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+    }
+
+    function clearHistory() {
+      sessionStorage.removeItem(HISTORY_KEY);
+      renderHistoryPane();
+      renderHistoryBadge();
+    }
+
+    function renderHistoryBadge() {
+      const badge = document.getElementById('history-badge');
+      const count = getHistory().length;
+      if (count) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function renderHistoryPane() {
+      const history  = getHistory();
+      const emptyEl  = document.getElementById('history-empty');
+      const cardsEl  = document.getElementById('history-cards');
+
+      if (!history.length) {
+        emptyEl.classList.remove('hidden');
+        cardsEl.innerHTML = '';
+        return;
+      }
+      emptyEl.classList.add('hidden');
+      cardsEl.innerHTML = '';
+
+      history.forEach((entry, idx) => {
+        const f   = entry.form;
+        const ts  = entry.ts ? new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        const stars = '★'.repeat(f.rating) + '☆'.repeat(5 - f.rating);
+
+        // Tone badge color
+        const toneColors = [
+          'bg-red-100 text-red-700',
+          'bg-red-50 text-red-600',
+          'bg-orange-100 text-orange-700',
+          'bg-yellow-100 text-yellow-700',
+          'bg-slate-100 text-slate-600',
+          'bg-lime-100 text-lime-700',
+          'bg-green-100 text-green-700',
+          'bg-teal-100 text-teal-700',
+          'bg-violet-100 text-violet-700'
+        ];
+        const toneColor = toneColors[f.toneIdx ?? 4];
+
+        const card = document.createElement('div');
+        card.className = 'card p-5';
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-base leading-tight">${escapeHtml(f.productName)}</h3>
+              <div class="text-amber-400 text-sm mt-0.5">${stars}</div>
+            </div>
+            <span class="text-xs text-slate-400 shrink-0 pt-0.5">${ts}</span>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 mb-3">
+            <span class="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">${escapeHtml(f.category)}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${toneColor}">${escapeHtml(f.tone)}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">~${f.wordCount} words</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${escapeHtml(f.model)}</span>
+            ${f.persona ? `<span class="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">as ${escapeHtml(f.persona)}</span>` : ''}
+          </div>
+
+          <div class="review-output history-body text-sm text-slate-700 leading-relaxed border-t border-violet-50 pt-3 mb-3" id="hist-body-${idx}"></div>
+
+          <div class="flex gap-2 pt-1">
+            <button onclick="copyHistoryEntry(${idx})"
+              class="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg text-xs font-semibold transition-colors">
+              Copy
+            </button>
+            <button onclick="loadFromHistory(${idx})"
+              class="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold transition-colors">
+              Load in Generator
+            </button>
+          </div>
+        `;
+        cardsEl.appendChild(card);
+
+        // Render markdown safely after element is in DOM
+        document.getElementById(`hist-body-${idx}`).innerHTML = marked.parse(entry.text || '');
+      });
+    }
+
+    function copyHistoryEntry(idx) {
+      const el = document.getElementById(`hist-body-${idx}`);
+      if (!el) return;
+      navigator.clipboard.writeText(el.innerText).then(() => {
+        // brief visual feedback would require targeting the button — skip for simplicity
+      });
+    }
+
+    function loadFromHistory(idx) {
+      const entry = getHistory()[idx];
+      if (!entry) return;
+      const f = entry.form;
+
+      document.getElementById('product-name').value     = f.productName;
+      document.getElementById('product-category').value = f.category;
+      document.getElementById('model-select').value     = f.model || 'gpt-4o';
+      document.getElementById('key-features').value     = f.features || '';
+      document.getElementById('reviewer-persona').value = f.persona  || '';
+      document.getElementById('tone-slider').value      = String(f.toneIdx ?? 4);
+      document.getElementById('length-slider').value    = String(f.wordCount || 150);
+      onToneSlide(document.getElementById('tone-slider'));
+      onLengthSlide(document.getElementById('length-slider'));
+      setRating(f.rating);
+
+      // Show the review in the output panel
+      const outSection = document.getElementById('output-section');
+      outSection.classList.remove('hidden');
+      document.getElementById('output-stars').textContent = '★'.repeat(f.rating) + '☆'.repeat(5 - f.rating);
+      document.getElementById('output-content').innerHTML = marked.parse(entry.text || '');
+
+      switchTab('generate');
+      outSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+
+</body>
+</html>
