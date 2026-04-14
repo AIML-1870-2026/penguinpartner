@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Science Experiment Generator</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+  <!-- Floating science background icons -->
+  <div class="bg-icons" aria-hidden="true">
+    <span class="bg-icon" style="top:4%;left:3%;font-size:2.4rem;animation-delay:0s">🔬</span>
+    <span class="bg-icon" style="top:10%;left:88%;font-size:2rem;animation-delay:1.2s">⚗️</span>
+    <span class="bg-icon" style="top:22%;left:6%;font-size:1.8rem;animation-delay:2.4s">🧲</span>
+    <span class="bg-icon" style="top:30%;left:92%;font-size:2.2rem;animation-delay:0.6s">🧪</span>
+    <span class="bg-icon" style="top:48%;left:2%;font-size:1.6rem;animation-delay:3s">💡</span>
+    <span class="bg-icon" style="top:55%;left:94%;font-size:2rem;animation-delay:1.8s">🌡️</span>
+    <span class="bg-icon" style="top:68%;left:5%;font-size:2rem;animation-delay:0.9s">🧬</span>
+    <span class="bg-icon" style="top:75%;left:90%;font-size:1.7rem;animation-delay:2.1s">🔭</span>
+    <span class="bg-icon" style="top:86%;left:8%;font-size:1.9rem;animation-delay:1.5s">⚡</span>
+    <span class="bg-icon" style="top:92%;left:85%;font-size:2.1rem;animation-delay:3.3s">🌊</span>
+    <span class="bg-icon" style="top:14%;left:50%;font-size:1.4rem;animation-delay:4s">✨</span>
+    <span class="bg-icon" style="top:60%;left:48%;font-size:1.3rem;animation-delay:2.7s">⭐</span>
+  </div>
+
+  <div class="container">
+
+    <header>
+      <div class="header-icon">🧪</div>
+      <h1>Science Experiment Generator</h1>
+      <p class="subtitle">Enter a grade level and the supplies you have on hand — get ready-to-run experiment ideas instantly!</p>
+    </header>
+
+    <section class="key-card">
+      <div class="key-row">
+        <div class="key-status-dot" id="key-dot"></div>
+        <label for="api-key-input" class="key-label">OpenAI API Key</label>
+        <span id="key-status" class="key-status">no key</span>
+      </div>
+      <div class="key-input-row">
+        <input
+          id="api-key-input"
+          type="password"
+          placeholder="sk-proj-…"
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <button type="button" id="set-key-btn" onclick="setKey()">Set</button>
+      </div>
+      <p class="key-note">Stored in memory only — cleared on page refresh. Never sent anywhere except OpenAI.</p>
+    </section>
+
+    <section class="form-card">
+      <form id="experiment-form" novalidate>
+
+        <div class="field">
+          <label for="grade-level">Grade Level</label>
+          <select id="grade-level" name="gradeLevel" required>
+            <optgroup label="Early Elementary">
+              <option value="Kindergarten" selected>Kindergarten</option>
+              <option value="1st Grade">1st Grade</option>
+              <option value="2nd Grade">2nd Grade</option>
+            </optgroup>
+            <optgroup label="Upper Elementary">
+              <option value="3rd Grade">3rd Grade</option>
+              <option value="4th Grade">4th Grade</option>
+              <option value="5th Grade">5th Grade</option>
+            </optgroup>
+            <optgroup label="Middle School">
+              <option value="6th Grade">6th Grade</option>
+              <option value="7th Grade">7th Grade</option>
+              <option value="8th Grade">8th Grade</option>
+            </optgroup>
+            <optgroup label="High School">
+              <option value="9th Grade">9th Grade</option>
+              <option value="10th Grade">10th Grade</option>
+              <option value="11th Grade">11th Grade</option>
+              <option value="12th Grade">12th Grade</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="supplies">Available Supplies</label>
+          <textarea
+            id="supplies"
+            name="supplies"
+            rows="4"
+            placeholder="e.g. baking soda, vinegar, balloons, string, food coloring"
+            required
+          ></textarea>
+          <span id="supplies-error" class="field-error" hidden>Please enter at least one supply.</span>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="submit-btn">
+            <span id="btn-label">Generate Experiment</span>
+            <span id="btn-spinner" class="spinner" hidden aria-hidden="true">&#9696;</span>
+          </button>
+        </div>
+
+      </form>
+    </section>
+
+    <div id="error-banner" class="error-banner" hidden role="alert">
+      <span id="error-message"></span>
+      <button class="dismiss-btn" onclick="dismissError()" aria-label="Dismiss error">&#x2715;</button>
+    </div>
+
+    <section id="results-section" class="results-section" hidden>
+      <div class="results-header">
+        <h2>Your Experiments</h2>
+        <button id="clear-btn" class="clear-btn" onclick="resetForm()">Clear / Start Over</button>
+      </div>
+      <div id="results-content" class="results-content markdown-body"></div>
+    </section>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
