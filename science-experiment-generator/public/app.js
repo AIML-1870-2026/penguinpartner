@@ -47,24 +47,53 @@ form.addEventListener('submit', async (e) => {
   setLoading(true);
   hideError();
 
+  if (!apiKey) {
+    showError('Please enter your OpenAI API key at the top of the page first.');
+    setLoading(false);
+    return;
+  }
+
+  const systemPrompt = `You are a creative and experienced science educator. When given a grade level and a list of available materials, you generate one or more safe, engaging, grade-appropriate science experiments. For each experiment, include:
+- A clear title
+- Learning objectives aligned to the grade level
+- A full materials list (only using what was provided)
+- Step-by-step instructions
+- Expected results and the science behind them
+- Optional extension ideas for advanced students
+
+Format your entire response in Markdown.`;
+
+  const userMessage = `Grade level: ${gradeLevel}\nAvailable supplies: ${supplies}\n\nPlease suggest one or more science experiments I can do with these materials at this grade level.`;
+
   try {
-    const res = await fetch('/api/generate', {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gradeLevel, supplies, apiKey: apiKey || undefined }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+      }),
     });
 
     const data = await res.json();
 
-    if (!res.ok || data.error) {
-      showError(data.error || 'Something went wrong. Please try again.');
+    if (!res.ok) {
+      const msg = data?.error?.message || `OpenAI error (${res.status})`;
+      showError(msg);
       return;
     }
 
-    renderResults(data.result);
+    const result = data.choices?.[0]?.message?.content || '';
+    renderResults(result);
   } catch (err) {
     console.error(err);
-    showError('Network error — could not reach the server. Is it running?');
+    showError('Network error — could not reach OpenAI. Check your connection.');
   } finally {
     setLoading(false);
   }
