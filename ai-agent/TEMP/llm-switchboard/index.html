@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Switchboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; }
+    .response-panel { white-space: pre-wrap; word-break: break-word; }
+    textarea { font-family: inherit; }
+    select option, select optgroup { background: #1e293b; }
+    .token-string  { color: #86efac; }
+    .token-number  { color: #fcd34d; }
+    .token-boolean { color: #93c5fd; }
+    .token-null    { color: #94a3b8; }
+    .token-key     { color: #7dd3fc; }
+    .spinner { animation: spin 0.8s linear infinite; display:inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-6 text-sm">
+
+  <!-- Privacy Banner -->
+  <div class="bg-amber-950/50 border border-amber-600/40 text-amber-200 text-xs px-4 py-2.5 rounded-lg mb-5 text-center">
+    🔒 <strong>Keys are stored in memory only and cleared on page refresh.</strong>
+    Never written to localStorage, sessionStorage, or any external service.
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-baseline gap-3 mb-6">
+    <h1 class="text-xl font-bold text-white tracking-tight">LLM Switchboard</h1>
+    <span class="text-slate-500 text-xs">OpenAI + Anthropic · reference infrastructure</span>
+  </div>
+
+  <!-- ── API Keys ──────────────────────────────────────────────── -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+
+    <!-- OpenAI -->
+    <div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+        <span class="text-emerald-400 font-semibold text-xs uppercase tracking-widest">OpenAI</span>
+        <span id="openai-status"
+          class="ml-auto text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-500">no key</span>
+      </div>
+      <div class="flex gap-2 mb-2">
+        <input id="openai-key-input" type="password" placeholder="sk-proj-…"
+          class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-emerald-500 transition-colors"
+          onkeydown="if(event.key==='Enter') setKey('openai')">
+        <button onclick="setKey('openai')"
+          class="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 rounded-lg text-xs font-semibold transition-colors">
+          Set
+        </button>
+      </div>
+      <label class="flex items-center gap-1.5 text-slate-500 text-xs cursor-pointer hover:text-slate-300 transition-colors">
+        <input type="file" accept=".env,.csv,.txt" class="hidden"
+          onchange="handleFileUpload(event,'openai')">
+        📁 Upload <code>.env</code> or CSV
+      </label>
+    </div>
+
+    <!-- Anthropic -->
+    <div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-2 h-2 rounded-full bg-violet-400 inline-block"></span>
+        <span class="text-violet-400 font-semibold text-xs uppercase tracking-widest">Anthropic</span>
+        <span id="anthropic-status"
+          class="ml-auto text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-500">no key</span>
+      </div>
+      <div class="flex gap-2 mb-2">
+        <input id="anthropic-key-input" type="password" placeholder="sk-ant-…"
+          class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-violet-500 transition-colors"
+          onkeydown="if(event.key==='Enter') setKey('anthropic')">
+        <button onclick="setKey('anthropic')"
+          class="px-3 py-1.5 bg-violet-800 hover:bg-violet-700 rounded-lg text-xs font-semibold transition-colors">
+          Set
+        </button>
+      </div>
+      <label class="flex items-center gap-1.5 text-slate-500 text-xs cursor-pointer hover:text-slate-300 transition-colors mb-3">
+        <input type="file" accept=".env,.csv,.txt" class="hidden"
+          onchange="handleFileUpload(event,'anthropic')">
+        📁 Upload <code>.env</code> or CSV
+      </label>
+
+    </div>
+  </section>
+
+  <!-- ── Controls Row ──────────────────────────────────────────── -->
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+
+    <!-- Mode Toggle -->
+    <div class="flex bg-slate-900 border border-slate-700 rounded-lg p-1 gap-1">
+      <button id="btn-unstructured" onclick="setMode('unstructured')"
+        class="px-3 py-1.5 rounded text-xs font-semibold transition-colors bg-slate-700 text-white">
+        Unstructured
+      </button>
+      <button id="btn-structured" onclick="setMode('structured')"
+        class="px-3 py-1.5 rounded text-xs font-semibold transition-colors text-slate-400 hover:text-white">
+        Structured
+      </button>
+    </div>
+
+    <!-- Compare Toggle -->
+    <button id="btn-comparison" onclick="toggleComparison()"
+      class="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+      ⇄ Compare Models
+    </button>
+
+    <!-- Model Selectors -->
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="flex items-center gap-2">
+        <span class="text-slate-500 text-xs">Model 1:</span>
+        <select id="model-1"
+          class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-slate-500 min-w-[190px]">
+          <option value="">— enter a key first —</option>
+        </select>
+      </div>
+      <div id="model-2-container" style="display:none;" class="flex items-center gap-2">
+        <span class="text-slate-500 text-xs">Model 2:</span>
+        <select id="model-2"
+          class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-slate-500 min-w-[190px]">
+          <option value="">— enter a key first —</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Editor Area ───────────────────────────────────────────── -->
+  <div class="flex gap-4 mb-4">
+
+    <!-- Prompt Panel -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-slate-400 text-xs font-semibold uppercase tracking-widest">Prompt</span>
+        <select id="example-prompt-select" onchange="loadExamplePrompt(this.value)"
+          class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none">
+          <option value="">Load example…</option>
+          <option value="creative">Creative writing (Le Guin)</option>
+          <option value="codegen">Code generation (JWT parser)</option>
+          <option value="debug">Code debugging</option>
+          <option value="extract">Data extraction</option>
+          <option value="transform">CSV → JSON transform</option>
+        </select>
+      </div>
+      <textarea id="prompt-input" rows="9"
+        placeholder="Enter your prompt here…"
+        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm resize-y focus:outline-none focus:border-slate-500 transition-colors leading-relaxed"></textarea>
+    </div>
+
+    <!-- Schema Panel (structured mode only) -->
+    <div id="schema-panel" style="display:none;" class="flex flex-col" style="width:320px;">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-slate-400 text-xs font-semibold uppercase tracking-widest">JSON Schema</span>
+        <select id="schema-template-select" onchange="loadSchemaTemplate(this.value)"
+          class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none">
+          <option value="">Load template…</option>
+          <option value="entities">Extract entities</option>
+          <option value="summary">Summarize + metadata</option>
+          <option value="review">Code review</option>
+        </select>
+      </div>
+      <textarea id="schema-input" rows="9"
+        placeholder='{ "type": "object", "properties": { ... } }'
+        class="w-full flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs resize-y focus:outline-none focus:border-slate-500 transition-colors leading-relaxed"
+        style="width:320px; min-width:280px;"></textarea>
+      <div id="schema-error" class="hidden text-red-400 text-xs mt-1.5 px-1"></div>
+    </div>
+  </div>
+
+  <!-- Send Button -->
+  <div class="flex justify-center mb-6">
+    <button id="send-btn" onclick="sendRequest()"
+      class="px-10 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-lg text-sm font-semibold transition-colors tracking-wide">
+      Send →
+    </button>
+  </div>
+
+  <!-- ── Response Area ─────────────────────────────────────────── -->
+  <div id="response-area" class="grid gap-4" style="grid-template-columns: 1fr;">
+
+    <!-- Column 1 -->
+    <div id="col-1-wrapper" class="flex flex-col">
+      <div id="col-1-header" style="display:none;" class="flex items-center justify-between mb-2">
+        <span id="col-1-label" class="text-xs font-semibold text-slate-400"></span>
+        <div class="flex gap-2">
+          <button onclick="copyResponse(1)"
+            class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs transition-colors">Copy</button>
+          <button onclick="clearResponse(1)"
+            class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs transition-colors">Clear</button>
+        </div>
+      </div>
+      <div id="response-1" style="display:none;"
+        class="response-panel bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs leading-relaxed overflow-y-auto"
+        style="min-height:180px; max-height:420px;"></div>
+    </div>
+
+    <!-- Column 2 (comparison) -->
+    <div id="col-2-wrapper" style="display:none;" class="flex flex-col">
+      <div id="col-2-header" class="flex items-center justify-between mb-2">
+        <span id="col-2-label" class="text-xs font-semibold text-slate-400"></span>
+        <div class="flex gap-2">
+          <button onclick="copyResponse(2)"
+            class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs transition-colors">Copy</button>
+          <button onclick="clearResponse(2)"
+            class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs transition-colors">Clear</button>
+        </div>
+      </div>
+      <div id="response-2"
+        class="response-panel bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs leading-relaxed overflow-y-auto"
+        style="min-height:180px; max-height:420px;"></div>
+    </div>
+  </div>
+
+  <!-- ── Metrics Dashboard ─────────────────────────────────────── -->
+  <div id="metrics-dashboard" style="display:none;" class="mt-5 bg-slate-900 border border-slate-700 rounded-xl p-4">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Response Metrics</span>
+      <span class="text-slate-600 text-xs">· cost estimates based on published list prices</span>
+    </div>
+
+    <!-- Metric cards (1 or 2 columns) -->
+    <div id="metrics-cards" class="grid gap-4" style="grid-template-columns: 1fr;"></div>
+
+    <!-- Comparison summary (shown only when both cols have data) -->
+    <div id="comparison-summary" style="display:none;" class="mt-4 pt-4 border-t border-slate-800">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Head-to-Head</p>
+      <div id="comparison-table" class="grid grid-cols-3 gap-2 text-xs"></div>
+    </div>
+  </div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────
+const state = {
+  openaiKey: '',
+  anthropicKey: '',
+  openaiModels: [],
+  anthropicModels: [],
+  mode: 'unstructured',
+  comparisonMode: false,
+  proxyUrl: 'http://localhost:8080',
+  lastResponses: { 1: '', 2: '' },
+  metricsData:   { 1: null, 2: null }
+};
+
+// ── Pricing (USD per 1M tokens, list price) ──────────────────────
+const PRICING = {
+  // OpenAI
+  'gpt-4o':             { in: 2.50,  out: 10.00 },
+  'gpt-4o-mini':        { in: 0.15,  out: 0.60  },
+  'gpt-4-turbo':        { in: 10.00, out: 30.00 },
+  'gpt-4':              { in: 30.00, out: 60.00 },
+  'gpt-3.5-turbo':      { in: 0.50,  out: 1.50  },
+  'o1':                 { in: 15.00, out: 60.00 },
+  'o1-mini':            { in: 3.00,  out: 12.00 },
+  'o3':                 { in: 10.00, out: 40.00 },
+  // Anthropic
+  'claude-opus-4-6':              { in: 15.00, out: 75.00 },
+  'claude-sonnet-4-6':            { in: 3.00,  out: 15.00 },
+  'claude-haiku-4-5-20251001':    { in: 0.80,  out: 4.00  },
+  'claude-3-5-sonnet-20241022':   { in: 3.00,  out: 15.00 },
+  'claude-3-opus-20240229':       { in: 15.00, out: 75.00 },
+  'claude-3-haiku-20240307':      { in: 0.25,  out: 1.25  },
+};
+
+// ── Static Data ──────────────────────────────────────────────────
+const EXAMPLE_PROMPTS = {
+  creative: 'Write a short story opening in the style of Ursula K. Le Guin.',
+  codegen:  'Write a Python function that parses a JWT without using any external libraries.',
+  debug:    'Here is a JavaScript snippet. Identify any bugs and explain the fix:\n\n```javascript\n// paste your code here\n```',
+  extract:  'Extract all product names, prices, and SKUs from the following unstructured text:\n\n[paste text]',
+  transform:'Convert the following CSV rows into a JSON array of objects:\n\n[paste CSV]'
+};
+
+const SCHEMA_TEMPLATES = {
+  entities: JSON.stringify({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        name:        { type: 'string', description: 'Entity name' },
+        type:        { type: 'string', description: 'Entity type (person, org, location…)' },
+        description: { type: 'string', description: 'Brief description' }
+      },
+      required: ['name', 'type', 'description']
+    }
+  }, null, 2),
+
+  summary: JSON.stringify({
+    type: 'object',
+    properties: {
+      summary:   { type: 'string', description: 'Concise summary' },
+      keywords:  { type: 'array', items: { type: 'string' }, description: 'Key topics' },
+      sentiment: { type: 'string', enum: ['positive', 'neutral', 'negative'] }
+    },
+    required: ['summary', 'keywords', 'sentiment']
+  }, null, 2),
+
+  review: JSON.stringify({
+    type: 'object',
+    properties: {
+      issues:      { type: 'array', items: { type: 'string' }, description: 'Bugs / problems found' },
+      suggestions: { type: 'array', items: { type: 'string' }, description: 'Improvement suggestions' },
+      score:       { type: 'number', minimum: 0, maximum: 10,  description: 'Quality score 0–10' }
+    },
+    required: ['issues', 'suggestions', 'score']
+  }, null, 2)
+};
+
+const FALLBACK_MODELS = {
+  openai: [
+    { id: 'gpt-4o',           label: 'GPT-4o' },
+    { id: 'gpt-4o-mini',      label: 'GPT-4o Mini' },
+    { id: 'o1',               label: 'o1' },
+    { id: 'o1-mini',          label: 'o1 Mini' },
+    { id: 'gpt-4-turbo',      label: 'GPT-4 Turbo' },
+    { id: 'gpt-4',            label: 'GPT-4' },
+    { id: 'gpt-3.5-turbo',    label: 'GPT-3.5 Turbo' }
+  ],
+  anthropic: [
+    { id: 'claude-opus-4-6',              label: 'Claude Opus 4.6' },
+    { id: 'claude-sonnet-4-6',            label: 'Claude Sonnet 4.6' },
+    { id: 'claude-haiku-4-5-20251001',    label: 'Claude Haiku 4.5' },
+    { id: 'claude-3-5-sonnet-20241022',   label: 'Claude 3.5 Sonnet' },
+    { id: 'claude-3-opus-20240229',       label: 'Claude 3 Opus' }
+  ]
+};
+
+// ── Mode & UI Controls ───────────────────────────────────────────
+function setMode(mode) {
+  state.mode = mode;
+  const active   = 'px-3 py-1.5 rounded text-xs font-semibold transition-colors bg-slate-700 text-white';
+  const inactive = 'px-3 py-1.5 rounded text-xs font-semibold transition-colors text-slate-400 hover:text-white';
+  document.getElementById('btn-unstructured').className = mode === 'unstructured' ? active : inactive;
+  document.getElementById('btn-structured').className   = mode === 'structured'   ? active : inactive;
+  document.getElementById('schema-panel').style.display = mode === 'structured' ? 'flex' : 'none';
+  document.getElementById('schema-panel').style.flexDirection = 'column';
+}
+
+function toggleComparison() {
+  state.comparisonMode = !state.comparisonMode;
+  const on  = state.comparisonMode;
+  document.getElementById('btn-comparison').className = on
+    ? 'px-3 py-1.5 bg-blue-800 border border-blue-500 rounded-lg text-xs font-semibold text-white transition-colors'
+    : 'px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-colors';
+  document.getElementById('model-2-container').style.display = on ? 'flex' : 'none';
+  document.getElementById('col-2-wrapper').style.display     = on ? 'flex' : 'none';
+  document.getElementById('col-2-wrapper').style.flexDirection = 'column';
+  document.getElementById('response-area').style.gridTemplateColumns = on ? '1fr 1fr' : '1fr';
+}
+
+// ── Key Management ───────────────────────────────────────────────
+async function setKey(provider) {
+  const key = document.getElementById(`${provider}-key-input`).value.trim();
+  if (!key) return;
+  state[`${provider}Key`] = key;
+  setStatus(provider, '⏳ checking…', 'yellow');
+  if (provider === 'openai') {
+    await fetchOpenAIModels(key);
+  } else {
+    // Anthropic: CORS blocks browser model-list fetch → use fallback immediately
+    state.anthropicModels = FALLBACK_MODELS.anthropic;
+    populateModelSelectors();
+    setStatus('anthropic', '✓ key set (proxy required)', 'violet');
+  }
+}
+
+async function fetchOpenAIModels(key) {
+  try {
+    const res = await fetch('https://api.openai.com/v1/models', {
+      headers: { Authorization: `Bearer ${key}` }
+    });
+    if (res.status === 401) { setStatus('openai','✗ invalid key','red'); return; }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { data } = await res.json();
+    const chatModels = data
+      .filter(m => /^(gpt|o1|o3|chatgpt)/.test(m.id) && !m.id.includes('instruct'))
+      .sort((a, b) => b.created - a.created)
+      .slice(0, 25)
+      .map(m => ({ id: m.id, label: m.id }));
+    state.openaiModels = chatModels.length ? chatModels : FALLBACK_MODELS.openai;
+    populateModelSelectors();
+    setStatus('openai', `✓ ${state.openaiModels.length} models loaded`, 'green');
+  } catch {
+    state.openaiModels = FALLBACK_MODELS.openai;
+    populateModelSelectors();
+    setStatus('openai', '✓ key set (fallback list)', 'green');
+  }
+}
+
+function setStatus(provider, text, color) {
+  const el = document.getElementById(`${provider}-status`);
+  const map = {
+    green:  'bg-emerald-950/60 text-emerald-300',
+    red:    'bg-red-950/60 text-red-300',
+    yellow: 'bg-yellow-950/60 text-yellow-300',
+    violet: 'bg-violet-950/60 text-violet-300'
+  };
+  el.className = `ml-auto text-xs px-2 py-0.5 rounded-full ${map[color] || 'bg-slate-800 text-slate-500'}`;
+  el.textContent = text;
+}
+
+function populateModelSelectors() {
+  [1, 2].forEach(n => {
+    const sel = document.getElementById(`model-${n}`);
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— select model —</option>';
+    if (state.openaiModels.length) {
+      const g = document.createElement('optgroup');
+      g.label = 'OpenAI';
+      state.openaiModels.forEach(m => {
+        const o = document.createElement('option');
+        o.value = `openai:${m.id}`;
+        o.textContent = m.label;
+        g.appendChild(o);
+      });
+      sel.appendChild(g);
+    }
+    if (state.anthropicModels.length) {
+      const g = document.createElement('optgroup');
+      g.label = 'Anthropic';
+      state.anthropicModels.forEach(m => {
+        const o = document.createElement('option');
+        o.value = `anthropic:${m.id}`;
+        o.textContent = m.label;
+        g.appendChild(o);
+      });
+      sel.appendChild(g);
+    }
+    if (prev) sel.value = prev;
+  });
+}
+
+// ── File Upload ──────────────────────────────────────────────────
+function handleFileUpload(event, provider) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const content = e.target.result;
+    let key = '';
+    if (file.name.endsWith('.csv')) {
+      for (const line of content.split('\n')) {
+        const cols = line.split(',').map(c => c.trim().replace(/^["']|["']$/g,''));
+        if (cols.length < 2) continue;
+        const name = cols[0].toLowerCase();
+        if (provider === 'openai'    && (name.includes('openai')    || cols[1].startsWith('sk-proj-'))) { key = cols[1]; break; }
+        if (provider === 'anthropic' && (name.includes('anthropic') || cols[1].startsWith('sk-ant-')))  { key = cols[1]; break; }
+      }
+    } else {
+      for (const line of content.split('\n')) {
+        const t = line.trim();
+        if (!t || t.startsWith('#') || !t.includes('=')) continue;
+        const [k, ...rest] = t.split('=');
+        const name = k.trim().toLowerCase();
+        const val  = rest.join('=').trim().replace(/^["']|["']$/g,'');
+        if (provider === 'openai'    && (name.includes('openai')    || name === 'openai_api_key'))    { key = val; break; }
+        if (provider === 'anthropic' && (name.includes('anthropic') || name === 'anthropic_api_key')) { key = val; break; }
+      }
+    }
+    if (key) {
+      document.getElementById(`${provider}-key-input`).value = key;
+      setKey(provider);
+    } else {
+      alert(`Could not find a ${provider} key in that file.`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── Prompt & Schema helpers ──────────────────────────────────────
+function loadExamplePrompt(key) {
+  if (!key) return;
+  document.getElementById('prompt-input').value = EXAMPLE_PROMPTS[key] || '';
+  document.getElementById('example-prompt-select').value = '';
+}
+
+function loadSchemaTemplate(key) {
+  if (!key) return;
+  document.getElementById('schema-input').value = SCHEMA_TEMPLATES[key] || '';
+  document.getElementById('schema-template-select').value = '';
+}
+
+// ── Send ─────────────────────────────────────────────────────────
+async function sendRequest() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  if (!prompt) { alert('Please enter a prompt.'); return; }
+
+  const m1 = document.getElementById('model-1').value;
+  if (!m1) { alert('Please select a model.'); return; }
+
+  // Validate schema if structured
+  let schema = null;
+  if (state.mode === 'structured') {
+    const raw = document.getElementById('schema-input').value.trim();
+    if (raw) {
+      try {
+        schema = JSON.parse(raw);
+        document.getElementById('schema-error').style.display = 'none';
+      } catch (err) {
+        const el = document.getElementById('schema-error');
+        el.textContent = 'Invalid JSON: ' + err.message;
+        el.style.display = 'block';
+        return;
+      }
+    }
+  }
+
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending…';
+
+  const calls = [{ col: 1, modelVal: m1 }];
+  if (state.comparisonMode) {
+    const m2 = document.getElementById('model-2').value;
+    if (m2) calls.push({ col: 2, modelVal: m2 });
+  }
+
+  await Promise.all(calls.map(({ col, modelVal }) => sendToModel(col, modelVal, prompt, schema)));
+
+  btn.disabled = false;
+  btn.textContent = 'Send →';
+}
+
+async function sendToModel(col, modelVal, prompt, schema) {
+  const [provider, modelId] = modelVal.split(':');
+  const responseEl = document.getElementById(`response-${col}`);
+  const headerEl   = document.getElementById(`col-${col}-header`);
+  const labelEl    = document.getElementById(`col-${col}-label`);
+
+  responseEl.style.display = 'block';
+  if (headerEl) headerEl.style.display = 'flex';
+  labelEl.textContent = `${provider === 'openai' ? '🟢 OpenAI' : '🟣 Anthropic'} · ${modelId}`;
+  responseEl.innerHTML = '<span class="text-slate-500"><span class="spinner">⟳</span> Waiting for response…</span>';
+
+  const t0 = Date.now();
+  try {
+    const result = provider === 'openai'
+      ? await callOpenAI(modelId, prompt, schema)
+      : await callAnthropic(modelId, prompt, schema);
+
+    const elapsed = Date.now() - t0;
+    const text = result.text;
+    state.lastResponses[col] = text;
+
+    if (state.mode === 'structured') {
+      try {
+        const parsed = JSON.parse(text);
+        responseEl.innerHTML = syntaxHighlight(JSON.stringify(parsed, null, 2));
+      } catch {
+        responseEl.textContent = text;
+      }
+    } else {
+      responseEl.textContent = text;
+    }
+
+    const u = result.usage;
+    const inputTok  = u ? (u.prompt_tokens    ?? u.input_tokens  ?? null) : null;
+    const outputTok = u ? (u.completion_tokens ?? u.output_tokens ?? null) : null;
+    const totalTok  = (inputTok != null && outputTok != null) ? inputTok + outputTok : null;
+    const tokPerSec = (outputTok && elapsed) ? (outputTok / (elapsed / 1000)) : null;
+    const price     = PRICING[modelId] ?? null;
+    const cost      = (price && inputTok != null && outputTok != null)
+                        ? (inputTok * price.in + outputTok * price.out) / 1_000_000
+                        : null;
+
+    state.metricsData[col] = {
+      label: labelEl.textContent,
+      provider, modelId,
+      elapsed, inputTok, outputTok, totalTok, tokPerSec,
+      chars: text.length, cost,
+      charsPerTok: (outputTok && text.length) ? (text.length / outputTok).toFixed(1) : null
+    };
+    renderDashboard();
+
+    responseEl.style.maxHeight = '420px';
+    responseEl.scrollTop = 0;
+  } catch (err) {
+    showError(col, err, modelVal);
+  }
+}
+
+// ── API Callers ──────────────────────────────────────────────────
+async function callOpenAI(modelId, prompt, schema) {
+  if (!state.openaiKey) throw apiError('No OpenAI key set.', 'auth');
+
+  const body = {
+    model: modelId,
+    messages: [{ role: 'user', content: prompt }]
+  };
+  if (schema) {
+    body.response_format = {
+      type: 'json_schema',
+      json_schema: { name: 'output', schema, strict: true }
+    };
+  }
+
+  const res = await timedFetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${state.openaiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (res.status === 401) throw apiError('Invalid API key — check your key and try again.', 'auth');
+  if (res.status === 429) throw apiError('Rate limit hit — wait a moment and retry.', 'ratelimit');
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw apiError(d.error?.message || `HTTP ${res.status}`, 'unknown', res.status);
+  }
+  const data = await res.json();
+  return { text: data.choices[0].message.content, usage: data.usage };
+}
+
+async function callAnthropic(modelId, prompt, schema) {
+  if (!state.anthropicKey) throw apiError('No Anthropic key set.', 'auth');
+
+  const url  = `${state.proxyUrl}/https://api.anthropic.com/v1/messages`;
+  const body = {
+    model: modelId,
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: prompt }]
+  };
+  if (schema) {
+    body.system = `Respond ONLY with valid JSON matching this schema (no markdown, no explanation):\n${JSON.stringify(schema, null, 2)}`;
+  }
+
+  let res;
+  try {
+    res = await timedFetch(url, {
+      method: 'POST',
+      headers: {
+        'x-api-key': state.anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  } catch (err) {
+    if (err.errType === 'timeout') throw err;
+    throw apiError('CORS error — start the local proxy (see instructions above).', 'cors');
+  }
+
+  if (res.status === 401) throw apiError('Invalid API key — check your key and try again.', 'auth');
+  if (res.status === 429) throw apiError('Rate limit hit — wait a moment and retry.', 'ratelimit');
+  if (!res.ok) {
+    const raw = await res.text().catch(() => '');
+    let msg = `HTTP ${res.status}`;
+    try {
+      const d = JSON.parse(raw);
+      msg = d.error?.message || d.message || JSON.stringify(d);
+    } catch { if (raw) msg += ': ' + raw; }
+    throw apiError(msg, 'unknown', res.status);
+  }
+  const data = await res.json();
+  return { text: data.content[0].text, usage: data.usage };
+}
+
+function timedFetch(url, opts, ms = 30000) {
+  return Promise.race([
+    fetch(url, opts),
+    new Promise((_, rej) =>
+      setTimeout(() => rej(apiError('Request timed out — the model may be overloaded.', 'timeout')), ms))
+  ]);
+}
+
+function apiError(msg, type, status) {
+  const e = new Error(msg);
+  e.errType = type;
+  if (status) e.status = status;
+  return e;
+}
+
+// ── Error Display ────────────────────────────────────────────────
+function showError(col, err, modelVal) {
+  const el = document.getElementById(`response-${col}`);
+  const isTransient = err.errType === 'ratelimit' || err.errType === 'timeout';
+  const isCors      = err.errType === 'cors';
+  let html = `<div class="text-red-400">`;
+  if (err.status) html += `<span class="text-slate-500 text-xs mr-1">HTTP ${err.status}</span>`;
+  html += `<span>${escHtml(err.message)}</span>`;
+  if (isCors) html += `<p class="mt-2 text-violet-400 text-xs">→ Start the local proxy using the command in the Anthropic key section above.</p>`;
+  if (isTransient) {
+    const safe = escHtml(modelVal);
+    html += `<div class="mt-2">
+      <button onclick="retryRequest(${col}, '${safe}')"
+        class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-white transition-colors">
+        ↺ Retry
+      </button></div>`;
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+async function retryRequest(col, modelVal) {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  let schema = null;
+  if (state.mode === 'structured') {
+    const t = document.getElementById('schema-input').value.trim();
+    if (t) { try { schema = JSON.parse(t); } catch {} }
+  }
+  await sendToModel(col, modelVal, prompt, schema);
+}
+
+// ── Response Utilities ───────────────────────────────────────────
+function copyResponse(col) {
+  const t = state.lastResponses[col];
+  if (t) navigator.clipboard.writeText(t);
+}
+
+function clearResponse(col) {
+  state.lastResponses[col] = '';
+  state.metricsData[col]   = null;
+  const r = document.getElementById(`response-${col}`);
+  const h = document.getElementById(`col-${col}-header`);
+  r.innerHTML = ''; r.style.display = 'none';
+  if (h && col === 1) h.style.display = 'none';
+  renderDashboard();
+}
+
+// ── Metrics Dashboard ─────────────────────────────────────────────
+function renderDashboard() {
+  const d1 = state.metricsData[1];
+  const d2 = state.metricsData[2];
+  const dash = document.getElementById('metrics-dashboard');
+  const cards = document.getElementById('metrics-cards');
+  const compSummary = document.getElementById('comparison-summary');
+
+  if (!d1 && !d2) { dash.style.display = 'none'; return; }
+  dash.style.display = 'block';
+
+  const active = [d1, d2].filter(Boolean);
+  cards.style.gridTemplateColumns = active.length === 2 ? '1fr 1fr' : '1fr';
+  cards.innerHTML = active.map(d => metricCard(d)).join('');
+
+  // Comparison summary
+  if (d1 && d2) {
+    compSummary.style.display = 'block';
+    renderComparison(d1, d2);
+  } else {
+    compSummary.style.display = 'none';
+  }
+}
+
+function metricCard(d) {
+  const fmtMs    = ms => ms >= 1000 ? `${(ms/1000).toFixed(2)}s` : `${ms}ms`;
+  const fmtCost  = c  => c == null  ? '—' : c < 0.000001 ? '<$0.000001' : `$${c.toFixed(6)}`;
+  const fmtToks  = n  => n == null  ? '—' : n.toLocaleString();
+  const fmtSpeed = n  => n == null  ? '—' : `${n.toFixed(1)} tok/s`;
+  const speedMs  = d.elapsed;
+  // Color-code response time: <2s green, <5s yellow, else red
+  const timeColor = speedMs < 2000 ? 'text-emerald-400'
+                  : speedMs < 5000 ? 'text-yellow-400'
+                  :                  'text-red-400';
+  const providerDot = d.provider === 'openai' ? '🟢' : '🟣';
+  const hasCost = d.cost != null;
+
+  return `
+  <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+    <div class="flex items-center gap-2 mb-4">
+      <span class="text-xs text-slate-400">${providerDot} <span class="font-semibold text-slate-300">${escHtml(d.modelId)}</span></span>
+    </div>
+    <div class="grid grid-cols-2 gap-x-6 gap-y-3">
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Response Time</div>
+        <div class="font-semibold ${timeColor}">${fmtMs(d.elapsed)}</div>
+      </div>
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Speed</div>
+        <div class="font-semibold text-slate-200">${fmtSpeed(d.tokPerSec)}</div>
+      </div>
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Input Tokens</div>
+        <div class="font-semibold text-slate-200">${fmtToks(d.inputTok)}</div>
+      </div>
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Output Tokens</div>
+        <div class="font-semibold text-slate-200">${fmtToks(d.outputTok)}</div>
+      </div>
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Total Tokens</div>
+        <div class="font-semibold text-slate-200">${fmtToks(d.totalTok)}</div>
+      </div>
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Response Length</div>
+        <div class="font-semibold text-slate-200">${d.chars.toLocaleString()} chars</div>
+      </div>
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Chars / Output Token</div>
+        <div class="font-semibold text-slate-200">${d.charsPerTok ?? '—'}</div>
+      </div>
+      <div>
+        <div class="text-slate-500 text-xs mb-0.5">Est. Cost</div>
+        <div class="font-semibold ${hasCost ? 'text-emerald-400' : 'text-slate-500'}">${fmtCost(d.cost)}</div>
+      </div>
+    </div>
+    ${PRICING[d.modelId] ? `
+    <div class="mt-4 pt-3 border-t border-slate-700/50">
+      <div class="text-slate-600 text-xs">List price: $${PRICING[d.modelId].in}/M in · $${PRICING[d.modelId].out}/M out</div>
+    </div>` : `<div class="mt-3 text-slate-600 text-xs">Pricing data not available for this model</div>`}
+  </div>`;
+}
+
+function renderComparison(d1, d2) {
+  const tbl = document.getElementById('comparison-table');
+  const better = (a, b, lowerBetter) => {
+    if (a == null || b == null) return ['—','—'];
+    const win = lowerBetter ? a <= b : a >= b;
+    const badge = v => `<span class="inline-block px-1.5 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-semibold">${v}</span>`;
+    return win ? [badge(fmt(a)), fmt(b)] : [fmt(a), badge(fmt(b))];
+  };
+  const fmt = v => typeof v === 'number' ? (v >= 1000 ? v.toLocaleString() : v.toFixed ? v.toFixed(2) : v) : (v ?? '—');
+
+  const rows = [
+    ['Response Time',   d1.elapsed,   d2.elapsed,   true,  v => v >= 1000 ? `${(v/1000).toFixed(2)}s` : `${v}ms`],
+    ['Speed (tok/s)',   d1.tokPerSec, d2.tokPerSec, false, v => v ? `${v.toFixed(1)}` : '—'],
+    ['Total Tokens',    d1.totalTok,  d2.totalTok,  true,  v => v ? v.toLocaleString() : '—'],
+    ['Output Tokens',   d1.outputTok, d2.outputTok, false, v => v ? v.toLocaleString() : '—'],
+    ['Est. Cost',       d1.cost,      d2.cost,      true,  v => v == null ? '—' : `$${v.toFixed(6)}`],
+    ['Length (chars)',  d1.chars,     d2.chars,      false, v => v.toLocaleString()],
+  ];
+
+  const labelCell = t => `<div class="text-slate-500 py-1">${t}</div>`;
+  const valCell   = (v, win) => `<div class="py-1 text-right ${win ? 'text-emerald-400 font-semibold' : 'text-slate-300'}">${v}</div>`;
+
+  // Header
+  let html = `
+    <div class="text-slate-600 text-xs font-semibold pb-1 border-b border-slate-800"></div>
+    <div class="text-slate-300 text-xs font-semibold pb-1 border-b border-slate-800 text-right truncate">${escHtml(d1.modelId)}</div>
+    <div class="text-slate-300 text-xs font-semibold pb-1 border-b border-slate-800 text-right truncate">${escHtml(d2.modelId)}</div>
+  `;
+
+  rows.forEach(([label, v1, v2, lowerBetter, fmtFn]) => {
+    const bothNull = v1 == null && v2 == null;
+    if (bothNull) return;
+    let w1 = false, w2 = false;
+    if (v1 != null && v2 != null) {
+      w1 = lowerBetter ? v1 <= v2 : v1 >= v2;
+      w2 = lowerBetter ? v2 <= v1 : v2 >= v1;
+      if (v1 === v2) { w1 = false; w2 = false; }
+    }
+    html += labelCell(label) + valCell(fmtFn(v1), w1) + valCell(fmtFn(v2), w2);
+  });
+  tbl.innerHTML = html;
+}
+
+// ── JSON Syntax Highlighter ───────────────────────────────────────
+function syntaxHighlight(json) {
+  const escaped = json
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return escaped.replace(
+    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    match => {
+      let cls = 'token-number';
+      if (/^"/.test(match)) cls = /:$/.test(match) ? 'token-key' : 'token-string';
+      else if (/true|false/.test(match)) cls = 'token-boolean';
+      else if (/null/.test(match)) cls = 'token-null';
+      return `<span class="${cls}">${match}</span>`;
+    }
+  );
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
