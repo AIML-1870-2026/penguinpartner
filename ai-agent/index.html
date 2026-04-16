@@ -3,19 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blackjack AI Agent</title>
+  <title>The Family's Table</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #1a1a2e;
-      color: #f0f0f0;
+      font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+      background-color: #0a0808;
+      background-image:
+        linear-gradient(45deg, rgba(180,140,40,0.03) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(180,140,40,0.03) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(180,140,40,0.03) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(180,140,40,0.03) 75%);
+      background-size: 24px 24px;
+      color: #f0e6d0;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 16px 16px 32px;
+      padding: 20px 16px 40px;
       gap: 12px;
     }
 
@@ -23,11 +29,20 @@
     .panel {
       width: 100%;
       max-width: 700px;
-      background: #0d1117;
-      border: 1px solid #2a2a3e;
-      border-radius: 12px;
+      background: #100c0c;
+      border: 1px solid #6b4f1a;
+      border-radius: 4px;
       padding: 12px 18px;
+      position: relative;
     }
+    .panel::before, .panel::after {
+      content: '';
+      position: absolute;
+      border: 1px solid rgba(180,140,40,0.25);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    .panel::before { inset: 3px; }
 
     /* ── Header ── */
     header {
@@ -36,57 +51,95 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 20px;
-      background: #0d1117;
-      border-radius: 12px;
-      border: 1px solid #2a2a3e;
+      padding: 14px 22px;
+      background: #0d0909;
+      border: 1px solid #c9a227;
+      border-radius: 4px;
+      position: relative;
     }
-    .header-title { font-size: 1.2rem; font-weight: 700; letter-spacing: 0.02em; }
-    .balance-display { font-size: 1rem; font-weight: 600; color: #ffd700; }
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border: 1px solid rgba(201,162,39,0.3);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    .header-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-style: italic;
+      letter-spacing: 0.06em;
+      color: #c9a227;
+      text-shadow: 0 0 18px rgba(201,162,39,0.4);
+    }
+    .balance-display {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #c9a227;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Ornamental divider ── */
+    .ornament {
+      text-align: center;
+      font-size: 0.75rem;
+      color: rgba(201,162,39,0.45);
+      letter-spacing: 0.35em;
+      user-select: none;
+    }
 
     /* ── ENV Section ── */
     #env-section { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
     #upload-label {
       display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
-      background: #21262d; border: 1px solid #444; border-radius: 8px;
-      padding: 7px 14px; font-size: 0.85rem; transition: background 0.15s;
+      background: #1c1212; border: 1px solid #6b4f1a; border-radius: 3px;
+      padding: 7px 16px; font-size: 0.82rem; font-family: inherit;
+      color: #c9a227; letter-spacing: 0.04em;
+      transition: background 0.15s, border-color 0.15s;
     }
-    #upload-label:hover { background: #30363d; }
+    #upload-label:hover { background: #261818; border-color: #c9a227; }
     #env-file-input { display: none; }
-    #api-key-status { font-size: 0.85rem; color: #8b949e; }
-    #api-key-status.loaded { color: #3fb950; font-weight: 600; }
-    #api-key-status.error  { color: #f85149; }
+    #api-key-status { font-size: 0.82rem; color: #7a6040; font-style: italic; }
+    #api-key-status.loaded { color: #a88a30; font-weight: 600; }
+    #api-key-status.error  { color: #8b2020; }
 
     /* ── Settings Bar ── */
     #settings-bar { display: flex; flex-direction: column; gap: 10px; }
     .settings-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .settings-label {
-      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.09em; color: #8b949e; min-width: 108px;
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.12em; color: #7a6040; min-width: 108px;
     }
-    .seg-group { display: flex; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 3px; gap: 3px; }
+    .seg-group {
+      display: flex; background: #0d0909; border: 1px solid #3a2a10;
+      border-radius: 3px; padding: 3px; gap: 2px;
+    }
     .seg-btn {
-      padding: 5px 13px; border: none; border-radius: 6px; font-size: 0.78rem;
-      font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s;
-      background: transparent; color: #8b949e;
+      padding: 5px 14px; border: none; border-radius: 2px; font-size: 0.76rem;
+      font-family: inherit; font-weight: 600; letter-spacing: 0.05em;
+      cursor: pointer; transition: background 0.15s, color 0.15s;
+      background: transparent; color: #5a4030;
     }
-    .seg-btn:hover  { color: #f0f0f0; }
-    .seg-btn.active { background: #21262d; color: #f0f0f0; }
-    .seg-btn.active.risk-conservative { background: #1a3a5c; color: #79c0ff; }
-    .seg-btn.active.risk-balanced     { background: #1a3a1a; color: #3fb950; }
-    .seg-btn.active.risk-aggressive   { background: #3a1a1a; color: #f85149; }
-    .seg-btn.active.explain-basic     { background: #21262d; color: #e6edf3; }
-    .seg-btn.active.explain-stats     { background: #1f2d3a; color: #79c0ff; }
-    .seg-btn.active.explain-deep      { background: #2d1f3a; color: #d2a8ff; }
+    .seg-btn:hover  { color: #c9a227; }
+    .seg-btn.active { background: #1e1408; color: #c9a227; border: 1px solid #6b4f1a; }
+    .seg-btn.active.risk-conservative { color: #79b4d4; border-color: #2a4a6b; background: #0d1a26; }
+    .seg-btn.active.risk-balanced     { color: #c9a227; border-color: #6b4f1a; background: #1e1408; }
+    .seg-btn.active.risk-aggressive   { color: #c45a5a; border-color: #5a2020; background: #1e0808; }
 
     /* ── Game Table ── */
     #game-table {
       width: 100%;
       max-width: 700px;
-      background: #276221;
-      border-radius: 18px;
-      border: 4px solid #1a4017;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+      background: radial-gradient(ellipse at center, #2a0a0a 0%, #1a0606 60%, #140404 100%);
+      border-radius: 6px;
+      border: 3px solid #c9a227;
+      box-shadow:
+        0 0 0 6px #0d0909,
+        0 0 0 7px #6b4f1a,
+        0 12px 40px rgba(0,0,0,0.8),
+        inset 0 1px 0 rgba(201,162,39,0.15);
       padding: 24px 22px 20px;
       display: flex;
       flex-direction: column;
@@ -96,143 +149,210 @@
     /* ── Hand Sections ── */
     .hand-section { text-align: center; }
     .hand-label {
-      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em;
-      color: rgba(255,255,255,0.55); text-transform: uppercase; margin-bottom: 8px;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.2em;
+      color: rgba(201,162,39,0.5); text-transform: uppercase; margin-bottom: 8px;
     }
-    .hand-score { font-size: 0.8rem; color: rgba(255,255,255,0.7); margin-top: 7px; min-height: 18px; }
+    .hand-score {
+      font-size: 0.8rem; color: rgba(240,230,208,0.6);
+      font-style: italic; margin-top: 7px; min-height: 18px;
+    }
     .cards-row {
-      display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; min-height: 100px;
+      display: flex; justify-content: center; gap: 8px;
+      flex-wrap: wrap; min-height: 100px;
     }
 
     /* ── Cards ── */
     .card {
-      width: 66px; height: 96px; border-radius: 8px; background: #fff; border: 1px solid #ddd;
+      width: 66px; height: 96px; border-radius: 6px;
+      background: #fdf8f0; border: 1px solid #d8c8a0;
       display: flex; flex-direction: column; justify-content: space-between;
       padding: 5px 6px; font-size: 0.88rem; font-weight: 700;
-      box-shadow: 2px 3px 8px rgba(0,0,0,0.4); color: #1a1a1a; user-select: none;
+      font-family: Georgia, serif;
+      box-shadow: 2px 3px 10px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.8);
+      color: #1a1a1a; user-select: none;
       animation: deal-in 0.3s ease forwards;
     }
     @keyframes deal-in {
-      from { transform: translateY(-20px) scale(0.85); opacity: 0; }
-      to   { transform: translateY(0)     scale(1);    opacity: 1; }
+      from { transform: translateY(-24px) scale(0.82) rotate(-2deg); opacity: 0; }
+      to   { transform: translateY(0)     scale(1)    rotate(0deg);  opacity: 1; }
     }
-    .card.red { color: #c0392b; }
+    .card.red { color: #8b1a1a; }
     .card .corner-top    { text-align: left; line-height: 1; }
     .card .corner-bottom { text-align: right; line-height: 1; transform: rotate(180deg); }
     .card .suit-center   { text-align: center; font-size: 1.35rem; }
+
+    /* Face-down card — dark red diamond weave */
     .card-back {
-      width: 66px; height: 96px; border-radius: 8px; border: 1px solid #555;
-      box-shadow: 2px 3px 8px rgba(0,0,0,0.4);
-      background: repeating-linear-gradient(45deg, #1a3a8a 0px,#1a3a8a 4px, #122a6a 4px,#122a6a 8px);
+      width: 66px; height: 96px; border-radius: 6px; border: 1px solid #5a1a1a;
+      box-shadow: 2px 3px 10px rgba(0,0,0,0.6);
+      background:
+        repeating-linear-gradient( 45deg, #4a0e0e 0px, #4a0e0e 4px, #2e0808 4px, #2e0808 8px);
       animation: deal-in 0.3s ease forwards;
     }
 
     /* ── Agent Callout ── */
     #agent-callout {
-      background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px; padding: 10px 16px; font-size: 0.85rem;
-      color: rgba(255,255,255,0.85); text-align: center; min-height: 44px;
+      background: rgba(0,0,0,0.5);
+      border-top: 1px solid rgba(201,162,39,0.2);
+      border-bottom: 1px solid rgba(201,162,39,0.2);
+      padding: 11px 16px; font-size: 0.86rem; font-style: italic;
+      color: rgba(240,230,208,0.75); text-align: center; min-height: 44px;
       display: flex; align-items: center; justify-content: center;
     }
-    #agent-callout.thinking { color: #ffd700; }
-    #agent-callout.reasoning { color: #7ee787; }
-    #agent-callout.error { color: #f85149; }
-    #agent-callout.manual { color: #e3b341; }
+    #agent-callout.thinking { color: #c9a227; }
+    #agent-callout.reasoning { color: #d4b870; font-style: italic; }
+    #agent-callout.error { color: #c45a5a; }
+    #agent-callout.manual { color: #c9a227; }
     .spinner { display: inline-block; animation: spin 0.7s linear infinite; margin-right: 6px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Strategy Viz ── */
     #strategy-viz {
-      background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px; padding: 10px 14px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(107,79,26,0.5);
+      border-radius: 3px; padding: 10px 14px;
       display: none; flex-direction: column; gap: 8px;
     }
     #strategy-viz.visible { display: flex; }
     .sv-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .sv-label { font-size: 0.72rem; color: rgba(255,255,255,0.55); min-width: 120px; }
-    .sv-badge {
-      font-size: 0.78rem; font-weight: 700; padding: 2px 10px;
-      border-radius: 5px; letter-spacing: 0.05em;
+    .sv-label {
+      font-size: 0.68rem; color: rgba(201,162,39,0.5);
+      text-transform: uppercase; letter-spacing: 0.1em; min-width: 130px;
     }
-    .sv-badge.hit  { background: #1f6feb; color: #fff; }
-    .sv-badge.stand { background: #6e40c9; color: #fff; }
-    .prob-bar-wrap { flex: 1; min-width: 100px; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden; }
-    .prob-bar { height: 100%; border-radius: 5px; transition: width 0.4s ease; }
-    .prob-bar.bust   { background: linear-gradient(90deg, #e3b341, #f85149); }
-    .prob-bar.dealer { background: linear-gradient(90deg, #3fb950, #1f6feb); }
-    .prob-pct { font-size: 0.75rem; color: rgba(255,255,255,0.7); min-width: 34px; text-align: right; }
+    .sv-badge {
+      font-size: 0.76rem; font-weight: 700; padding: 2px 12px;
+      border-radius: 2px; letter-spacing: 0.08em; font-family: inherit;
+    }
+    .sv-badge.hit  { background: #5a0f0f; color: #f0a0a0; border: 1px solid #8b2020; }
+    .sv-badge.stand { background: #1a1408; color: #c9a227; border: 1px solid #6b4f1a; }
+    .prob-bar-wrap {
+      flex: 1; min-width: 80px; height: 7px;
+      background: rgba(255,255,255,0.07); border-radius: 4px; overflow: hidden;
+    }
+    .prob-bar { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+    .prob-bar.bust   { background: linear-gradient(90deg, #8b2020, #c45a5a); }
+    .prob-bar.dealer { background: linear-gradient(90deg, #6b4f1a, #c9a227); }
+    .prob-pct { font-size: 0.72rem; color: rgba(201,162,39,0.6); min-width: 34px; text-align: right; }
+
+    /* ── Table Divider ── */
+    .table-divider {
+      border: none;
+      border-top: 1px solid rgba(107,79,26,0.4);
+      margin: 0;
+    }
 
     /* ── Action Buttons ── */
     #action-buttons { display: flex; justify-content: center; gap: 16px; }
     .action-btn {
-      padding: 12px 36px; border: none; border-radius: 10px;
-      font-size: 0.95rem; font-weight: 700; letter-spacing: 0.06em; cursor: pointer;
-      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+      padding: 11px 38px; border-radius: 3px; font-size: 0.92rem;
+      font-weight: 700; font-family: inherit; letter-spacing: 0.12em;
+      cursor: pointer; transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+      text-transform: uppercase;
     }
-    #btn-hit   { background: #1f6feb; color: #fff; }
-    #btn-hit:hover:not(:disabled)   { background: #388bfd; transform: translateY(-1px); }
-    #btn-stand { background: #6e40c9; color: #fff; }
-    #btn-stand:hover:not(:disabled) { background: #8957e5; transform: translateY(-1px); }
-    .action-btn:disabled { background: #2d333b; color: #484f58; cursor: not-allowed; box-shadow: none; transform: none; }
-    .action-btn.agent-highlight { outline: 3px solid #ffd700; outline-offset: 2px; transform: scale(1.05); }
+    #btn-hit {
+      background: #5a0f0f; color: #f0e6d0;
+      border: 1px solid #8b2020;
+    }
+    #btn-hit:hover:not(:disabled) {
+      background: #7a1515; transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(138,32,32,0.4);
+    }
+    #btn-stand {
+      background: #0d0909; color: #c9a227;
+      border: 1px solid #6b4f1a;
+    }
+    #btn-stand:hover:not(:disabled) {
+      background: #1a1408; transform: translateY(-1px);
+      box-shadow: 0 5px 14px rgba(201,162,39,0.25);
+    }
+    .action-btn:disabled {
+      background: #1a1010; color: #3a2a20;
+      border-color: #2a1a10; cursor: not-allowed; box-shadow: none; transform: none;
+    }
+    .action-btn.agent-highlight {
+      outline: 2px solid #c9a227; outline-offset: 3px; transform: scale(1.06);
+      box-shadow: 0 0 18px rgba(201,162,39,0.45);
+    }
 
     /* ── Result / New Hand ── */
-    #result-display { text-align: center; font-size: 1.25rem; font-weight: 700; min-height: 32px; letter-spacing: 0.04em; }
-    #result-display.win       { color: #3fb950; }
-    #result-display.lose      { color: #f85149; }
-    #result-display.push      { color: #e3b341; }
-    #result-display.blackjack { color: #ffd700; text-shadow: 0 0 12px #ffd70080; }
-    #result-display.bust      { color: #f85149; }
-    #btn-new-hand {
-      align-self: center; padding: 12px 44px; background: #238636; color: #fff;
-      border: none; border-radius: 10px; font-size: 1rem; font-weight: 700;
-      letter-spacing: 0.05em; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.35);
-      transition: background 0.15s, transform 0.1s;
+    #result-display {
+      text-align: center; font-size: 1.2rem; font-weight: 700;
+      font-style: italic; min-height: 32px; letter-spacing: 0.04em;
     }
-    #btn-new-hand:hover:not(:disabled) { background: #2ea043; transform: translateY(-1px); }
-    #btn-new-hand:disabled { background: #2d333b; color: #484f58; cursor: not-allowed; transform: none; }
+    #result-display.win       { color: #a88a30; }
+    #result-display.lose      { color: #8b2020; }
+    #result-display.push      { color: #7a6040; }
+    #result-display.blackjack {
+      color: #c9a227;
+      text-shadow: 0 0 16px rgba(201,162,39,0.6);
+    }
+    #result-display.bust { color: #8b2020; }
 
-    /* ── Divider ── */
-    .table-divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0; }
+    #btn-new-hand {
+      align-self: center; padding: 11px 46px;
+      background: #c9a227; color: #0d0909;
+      border: none; border-radius: 3px; font-size: 0.92rem; font-weight: 700;
+      font-family: inherit; letter-spacing: 0.1em; text-transform: uppercase;
+      cursor: pointer; box-shadow: 0 3px 12px rgba(201,162,39,0.35);
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+    #btn-new-hand:hover:not(:disabled) {
+      background: #d9b540; transform: translateY(-1px);
+      box-shadow: 0 5px 18px rgba(201,162,39,0.5);
+    }
+    #btn-new-hand:disabled {
+      background: #2a1e10; color: #4a3820;
+      cursor: not-allowed; transform: none; box-shadow: none;
+    }
 
     /* ── Analytics Panel ── */
     #analytics-panel { display: none; flex-direction: column; gap: 12px; }
     #analytics-panel.visible { display: flex; }
     .analytics-title {
-      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.1em; color: #8b949e; margin-bottom: 2px;
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.14em; color: #7a6040; margin-bottom: 2px;
     }
     .stats-row { display: flex; gap: 6px; flex-wrap: wrap; }
     .stat-chip {
-      background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-      padding: 7px 14px; text-align: center; flex: 1; min-width: 80px;
+      background: #0d0909; border: 1px solid #3a2a10; border-radius: 3px;
+      padding: 7px 12px; text-align: center; flex: 1; min-width: 76px;
     }
-    .stat-chip .chip-val { font-size: 1.1rem; font-weight: 700; }
-    .stat-chip .chip-lbl { font-size: 0.68rem; color: #8b949e; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.07em; }
-    .chip-val.green { color: #3fb950; }
-    .chip-val.red   { color: #f85149; }
-    .chip-val.gold  { color: #ffd700; }
-    .chip-val.blue  { color: #79c0ff; }
+    .stat-chip .chip-val { font-size: 1.05rem; font-weight: 700; }
+    .stat-chip .chip-lbl {
+      font-size: 0.63rem; color: #5a4030; margin-top: 2px;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .chip-val.gold  { color: #c9a227; }
+    .chip-val.red   { color: #8b2020; }
+    .chip-val.muted { color: #7a6040; }
+    .chip-val.blue  { color: #7aaced; }
 
-    /* Sparkline */
-    #sparkline-wrap { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px; }
-    .sparkline-title { font-size: 0.68rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+    #sparkline-wrap {
+      background: #0d0909; border: 1px solid #3a2a10;
+      border-radius: 3px; padding: 10px 12px;
+    }
+    .sparkline-title {
+      font-size: 0.63rem; color: #5a4030; text-transform: uppercase;
+      letter-spacing: 0.1em; margin-bottom: 6px;
+    }
     svg#sparkline { width: 100%; height: 60px; display: block; overflow: visible; }
 
-    /* Decision quality bar */
     #quality-bar-wrap { display: flex; align-items: center; gap: 10px; }
-    #quality-bar-outer { flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
-    #quality-bar-inner { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #1f6feb, #3fb950); transition: width 0.5s ease; }
+    #quality-bar-outer { flex: 1; height: 7px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    #quality-bar-inner {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(90deg, #6b4f1a, #c9a227);
+      transition: width 0.5s ease;
+    }
 
     /* ── Responsive ── */
-    .table-divider { margin: 0 !important; }
     @media (max-width: 440px) {
       .card, .card-back { width: 54px; height: 78px; }
       .card { font-size: 0.76rem; }
       .card .suit-center { font-size: 1.1rem; }
       #game-table { padding: 16px 10px; }
-      .action-btn { padding: 10px 22px; font-size: 0.88rem; }
+      .action-btn { padding: 10px 22px; font-size: 0.84rem; }
       .settings-label { min-width: 80px; }
     }
   </style>
@@ -241,33 +361,33 @@
 
   <!-- Header -->
   <header>
-    <span class="header-title">🃏 Blackjack AI Agent</span>
-    <span class="balance-display" id="balance-display">Balance: $500</span>
+    <span class="header-title">♠ The Family's Table</span>
+    <span class="balance-display" id="balance-display">Wallet: $500</span>
   </header>
 
   <!-- ENV -->
   <div class="panel" id="env-section">
-    <label id="upload-label" for="env-file-input">📁 Upload .env file</label>
+    <label id="upload-label" for="env-file-input">🗝 Upload .env file</label>
     <input type="file" id="env-file-input" accept=".env,.txt">
-    <span id="api-key-status">No API key loaded</span>
+    <span id="api-key-status">No key on file</span>
   </div>
 
   <!-- Settings -->
   <div class="panel" id="settings-bar">
     <div class="settings-row">
-      <span class="settings-label">Explanation</span>
+      <span class="settings-label">Intel Level</span>
       <div class="seg-group">
-        <button class="seg-btn active explain-basic" id="explain-basic"   onclick="setExplain('basic')">Basic</button>
+        <button class="seg-btn active explain-basic" id="explain-basic"   onclick="setExplain('basic')">Brief</button>
         <button class="seg-btn"                      id="explain-stats"   onclick="setExplain('statistical')">Statistical</button>
-        <button class="seg-btn"                      id="explain-deep"    onclick="setExplain('indepth')">In-depth</button>
+        <button class="seg-btn"                      id="explain-deep"    onclick="setExplain('indepth')">Full Report</button>
       </div>
     </div>
     <div class="settings-row">
-      <span class="settings-label">Risk Profile</span>
+      <span class="settings-label">Appetite</span>
       <div class="seg-group">
-        <button class="seg-btn"                         id="risk-conservative" onclick="setRisk('conservative')">Conservative</button>
-        <button class="seg-btn active risk-balanced"    id="risk-balanced"     onclick="setRisk('balanced')">Balanced</button>
-        <button class="seg-btn"                         id="risk-aggressive"   onclick="setRisk('aggressive')">Aggressive</button>
+        <button class="seg-btn"                           id="risk-conservative" onclick="setRisk('conservative')">Cautious</button>
+        <button class="seg-btn active risk-balanced"      id="risk-balanced"     onclick="setRisk('balanced')">Steady</button>
+        <button class="seg-btn"                           id="risk-aggressive"   onclick="setRisk('aggressive')">Reckless</button>
       </div>
     </div>
   </div>
@@ -276,19 +396,19 @@
   <div id="game-table">
 
     <div class="hand-section">
-      <div class="hand-label">Dealer</div>
+      <div class="hand-label">The House</div>
       <div class="cards-row" id="dealer-cards"></div>
       <div class="hand-score" id="dealer-score"></div>
     </div>
 
     <hr class="table-divider">
 
-    <div id="agent-callout">Waiting for new hand…</div>
+    <div id="agent-callout">Awaiting your move, boss…</div>
 
     <!-- Strategy Visualization -->
     <div id="strategy-viz">
       <div class="sv-row">
-        <span class="sv-label">Basic Strategy</span>
+        <span class="sv-label">Smart Play</span>
         <span class="sv-badge" id="sv-basic-badge">—</span>
       </div>
       <div class="sv-row">
@@ -297,7 +417,7 @@
         <span class="prob-pct" id="bust-pct">—</span>
       </div>
       <div class="sv-row">
-        <span class="sv-label">Dealer bust chance</span>
+        <span class="sv-label">House busts if you stand</span>
         <div class="prob-bar-wrap"><div class="prob-bar dealer" id="dealer-bust-bar" style="width:0%"></div></div>
         <span class="prob-pct" id="dealer-bust-pct">—</span>
       </div>
@@ -306,49 +426,52 @@
     <hr class="table-divider">
 
     <div class="hand-section">
-      <div class="hand-label">Player</div>
+      <div class="hand-label">You</div>
       <div class="cards-row" id="player-cards"></div>
       <div class="hand-score" id="player-score"></div>
     </div>
 
     <div id="action-buttons">
-      <button class="action-btn" id="btn-hit"   onclick="playerHit()"   disabled>HIT</button>
-      <button class="action-btn" id="btn-stand" onclick="playerStand()" disabled>STAND</button>
+      <button class="action-btn" id="btn-hit"   onclick="playerHit()"   disabled>Hit</button>
+      <button class="action-btn" id="btn-stand" onclick="playerStand()" disabled>Stand</button>
     </div>
 
     <div id="result-display"></div>
-    <button id="btn-new-hand" onclick="newHand()">New Hand</button>
+
+    <div class="ornament">✦ &nbsp; ✦ &nbsp; ✦</div>
+
+    <button id="btn-new-hand" onclick="newHand()">Deal the Cards</button>
 
   </div>
 
   <!-- Analytics -->
   <div class="panel" id="analytics-panel">
-    <div class="analytics-title">Performance Analytics</div>
+    <div class="analytics-title">The Books</div>
     <div class="stats-row">
-      <div class="stat-chip"><div class="chip-val green" id="stat-wins">0</div><div class="chip-lbl">Wins</div></div>
-      <div class="stat-chip"><div class="chip-val red"   id="stat-losses">0</div><div class="chip-lbl">Losses</div></div>
-      <div class="stat-chip"><div class="chip-val gold"  id="stat-pushes">0</div><div class="chip-lbl">Pushes</div></div>
-      <div class="stat-chip"><div class="chip-val blue"  id="stat-winrate">—</div><div class="chip-lbl">Win Rate</div></div>
-      <div class="stat-chip"><div class="chip-val blue"  id="stat-quality">—</div><div class="chip-lbl">AI Quality</div></div>
+      <div class="stat-chip"><div class="chip-val gold"  id="stat-wins">0</div><div class="chip-lbl">Wins</div></div>
+      <div class="stat-chip"><div class="chip-val red"   id="stat-losses">0</div><div class="chip-lbl">Debts</div></div>
+      <div class="stat-chip"><div class="chip-val muted" id="stat-pushes">0</div><div class="chip-lbl">Pushes</div></div>
+      <div class="stat-chip"><div class="chip-val gold"  id="stat-winrate">—</div><div class="chip-lbl">Win Rate</div></div>
+      <div class="stat-chip"><div class="chip-val blue"  id="stat-quality">—</div><div class="chip-lbl">Consigliere</div></div>
     </div>
     <div id="sparkline-wrap">
-      <div class="sparkline-title">Bankroll history</div>
+      <div class="sparkline-title">Wallet History</div>
       <svg id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none">
-        <polyline id="sparkline-line" fill="none" stroke="#3fb950" stroke-width="2" points=""/>
-        <polyline id="sparkline-area" fill="url(#sparkGrad)" stroke="none" points=""/>
         <defs>
           <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stop-color="#3fb950" stop-opacity="0.3"/>
-            <stop offset="100%" stop-color="#3fb950" stop-opacity="0"/>
+            <stop offset="0%"   stop-color="#c9a227" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#c9a227" stop-opacity="0"/>
           </linearGradient>
         </defs>
+        <polyline id="sparkline-area" fill="url(#sparkGrad)" stroke="none" points=""/>
+        <polyline id="sparkline-line" fill="none" stroke="#c9a227" stroke-width="1.5" points=""/>
       </svg>
     </div>
     <div>
-      <div class="analytics-title" style="margin-bottom:6px;">AI vs Basic Strategy Agreement</div>
+      <div class="analytics-title" style="margin-bottom:6px;">Consigliere vs Basic Strategy</div>
       <div id="quality-bar-wrap">
         <div id="quality-bar-outer"><div id="quality-bar-inner" style="width:0%"></div></div>
-        <span id="quality-pct" style="font-size:0.8rem;color:#8b949e;min-width:34px;text-align:right;">—</span>
+        <span id="quality-pct" style="font-size:0.78rem;color:#5a4030;min-width:34px;text-align:right;">—</span>
       </div>
     </div>
   </div>
@@ -363,7 +486,6 @@ const SUITS = ['♠','♥','♦','♣'];
 const RED_SUITS = new Set(['♥','♦']);
 const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 
-// Dealer bust probability by up-card value (published standard values)
 const DEALER_BUST = { 2:0.353, 3:0.374, 4:0.401, 5:0.423, 6:0.423,
                       7:0.262, 8:0.238, 9:0.230, 10:0.231, 11:0.117 };
 
@@ -375,16 +497,13 @@ let playerHand = [];
 let dealerHand = [];
 let gameState  = 'IDLE';
 
-// Settings
-let explainLevel = 'basic';       // 'basic' | 'statistical' | 'indepth'
-let riskProfile  = 'balanced';    // 'conservative' | 'balanced' | 'aggressive'
+let explainLevel = 'basic';
+let riskProfile  = 'balanced';
 
-// Analytics
 const stats = {
   wins: 0, losses: 0, pushes: 0,
   bankrollHistory: [STARTING_BALANCE],
-  agentDecisions: 0,
-  basicMatches: 0
+  agentDecisions: 0, basicMatches: 0
 };
 
 // ── ENV Upload ───────────────────────────────────────────────────
@@ -408,11 +527,11 @@ document.getElementById('env-file-input').addEventListener('change', function(e)
       console.log(`[ENV] API key loaded (length: ${apiKey.length})`);
       document.getElementById('upload-label').style.display = 'none';
       const s = document.getElementById('api-key-status');
-      s.textContent = 'OpenAI API key loaded ✓';
+      s.textContent = 'Key loaded — we\'re in business ✓';
       s.className = 'loaded';
     } else {
       const s = document.getElementById('api-key-status');
-      s.textContent = 'Could not find OPENAI_API_KEY in that file.';
+      s.textContent = 'Couldn\'t find OPENAI_API_KEY in that file.';
       s.className = 'error';
       console.error('[ENV] Parse failed — OPENAI_API_KEY not found.');
     }
@@ -423,9 +542,9 @@ document.getElementById('env-file-input').addEventListener('change', function(e)
 // ── Settings Controls ─────────────────────────────────────────────
 function setExplain(level) {
   explainLevel = level;
-  ['basic','stats','deep'].forEach(k => {
+  const map = { basic: 'basic', statistical: 'stats', indepth: 'deep' };
+  Object.entries(map).forEach(([id, k]) => {
     const btn = document.getElementById(`explain-${k}`);
-    const id = k === 'stats' ? 'statistical' : k === 'deep' ? 'indepth' : k;
     btn.className = `seg-btn${level === id ? ` active explain-${k}` : ''}`;
   });
   console.log(`[UI] Explanation level → ${level}`);
@@ -493,31 +612,26 @@ function cardUpValue(card) {
 function cardLabel(card) { return `${card.rank}${card.suit}`; }
 
 // ── Strategy & Probability ────────────────────────────────────────
-// Returns 'hit' or 'stand' per basic strategy (doubles/splits treated as hit)
 function getBasicStrategy(playerTotal, soft, dealerUpValue) {
-  // d: 0=2, 1=3, 2=4, 3=5, 4=6, 5=7, 6=8, 7=9, 8=10/face, 9=A
   const d = dealerUpValue === 11 ? 9 : Math.min(dealerUpValue - 2, 8);
-
   if (soft) {
     if (playerTotal >= 19) return 'stand';
-    if (playerTotal === 18) return d >= 7 ? 'hit' : 'stand'; // hit vs 9,10,A
-    return 'hit'; // soft 13-17
+    if (playerTotal === 18) return d >= 7 ? 'hit' : 'stand';
+    return 'hit';
   }
   if (playerTotal >= 17) return 'stand';
-  if (playerTotal >= 13) return d <= 4 ? 'stand' : 'hit'; // stand vs 2-6
-  if (playerTotal === 12) return (d >= 2 && d <= 4) ? 'stand' : 'hit'; // stand vs 4-6
-  return 'hit'; // ≤11
+  if (playerTotal >= 13) return d <= 4 ? 'stand' : 'hit';
+  if (playerTotal === 12) return (d >= 2 && d <= 4) ? 'stand' : 'hit';
+  return 'hit';
 }
 
-// Probability of busting on the next card (infinite-deck approximation)
 function getBustProb(playerTotal, soft) {
   if (soft || playerTotal <= 11) return 0;
   const maxSafe = 21 - playerTotal;
   if (maxSafe <= 0) return 1;
-  // 13 equally likely card ranks: A(1),2,3,4,5,6,7,8,9,10,J,Q,K(10)
   let bust = 0;
   for (let v = 1; v <= 9; v++) if (v > maxSafe) bust++;
-  if (10 > maxSafe) bust += 4; // 10,J,Q,K
+  if (10 > maxSafe) bust += 4;
   return bust / 13;
 }
 
@@ -528,7 +642,7 @@ function showStrategyViz(playerTotal, soft, dealerUpValue) {
   const dealerBust = DEALER_BUST[dealerUpValue] ?? 0.23;
 
   const badge = document.getElementById('sv-basic-badge');
-  badge.textContent = bs.toUpperCase();
+  badge.textContent = bs === 'hit' ? 'HIT' : 'STAND';
   badge.className = `sv-badge ${bs}`;
 
   document.getElementById('bust-bar').style.width = (bust * 100).toFixed(1) + '%';
@@ -573,9 +687,9 @@ function setButtons(hit, stand) {
   document.getElementById('btn-stand').disabled = !stand;
 }
 
-function setCallout(text, cls = '') {
+function setCallout(html, cls = '') {
   const el = document.getElementById('agent-callout');
-  el.textContent = text;
+  el.innerHTML = html;
   el.className = cls;
 }
 
@@ -586,7 +700,7 @@ function setResult(text, cls = '') {
 }
 
 function updateBalance() {
-  document.getElementById('balance-display').textContent = `Balance: $${balance}`;
+  document.getElementById('balance-display').textContent = `Wallet: $${balance}`;
   console.log(`[BALANCE] Current balance: $${balance}`);
 }
 
@@ -608,8 +722,6 @@ function recordResult(outcome) {
 }
 
 function updateAnalytics() {
-  const total = stats.wins + stats.losses + stats.pushes;
-
   document.getElementById('stat-wins').textContent   = stats.wins;
   document.getElementById('stat-losses').textContent = stats.losses;
   document.getElementById('stat-pushes').textContent = stats.pushes;
@@ -624,7 +736,7 @@ function updateAnalytics() {
   document.getElementById('quality-pct').textContent  = quality !== null ? quality + '%' : '—';
   document.getElementById('quality-bar-inner').style.width = quality !== null ? quality + '%' : '0%';
 
-  if (total > 0) {
+  if (stats.wins + stats.losses + stats.pushes > 0) {
     document.getElementById('analytics-panel').className = 'panel visible';
     renderSparkline();
   }
@@ -651,7 +763,7 @@ function renderSparkline() {
 
 // ── New Hand ─────────────────────────────────────────────────────
 function newHand() {
-  if (!apiKey) { alert('Please upload your .env file first.'); return; }
+  if (!apiKey) { alert('Upload your .env file first, boss.'); return; }
   if (balance <= 0) return;
 
   console.log('[GAME] State → DEALING');
@@ -677,7 +789,6 @@ function newHand() {
   document.getElementById('player-score').textContent = `${pScore.total}${pScore.soft ? ' (soft)' : ''}`;
   document.getElementById('dealer-score').textContent = cardLabel(dUpCard);
 
-  // Natural blackjack check
   if (pScore.total === 21 && playerHand.length === 2) {
     const dScore = scoreHand(dealerHand);
     resolveResult(dScore.total === 21 && dealerHand.length === 2 ? 'push' : 'blackjack');
@@ -693,19 +804,16 @@ function newHand() {
 // ── Prompt Building ───────────────────────────────────────────────
 function buildSystemPrompt() {
   let base = 'You are a Blackjack strategy advisor. Return only raw JSON. No markdown. No explanation outside the JSON.';
-
   if (riskProfile === 'conservative')
-    base += ' The player is risk-averse — lean toward standing to protect the hand unless hitting is clearly correct.';
+    base += ' The player is cautious — lean toward standing to protect the hand unless hitting is clearly correct.';
   else if (riskProfile === 'aggressive')
-    base += ' The player accepts higher risk for potential reward — consider hitting on borderline hands.';
-
+    base += ' The player is reckless and accepts high risk — consider hitting on borderline hands.';
   return base;
 }
 
 function buildUserMessage(payload) {
   const stateBlock = JSON.stringify(payload, null, 2);
-
-  const responseFormats = {
+  const formats = {
     basic:
 `Respond ONLY with a valid JSON object — no prose, no markdown fences:
 {"action": "hit" | "stand", "reasoning": "<one sentence>"}`,
@@ -716,21 +824,12 @@ function buildUserMessage(payload) {
 `Respond ONLY with a valid JSON object — no prose, no markdown fences:
 {"action": "hit" | "stand", "reasoning": "<3-4 sentences: cover bust risk, dealer tendencies with this up card, expected value considerations, and why this is the optimal play>"}`
   };
-
-  return `You are a Blackjack strategy advisor.
-
-Current game state (JSON):
-${stateBlock}
-
-${responseFormats[explainLevel]}`;
+  return `You are a Blackjack strategy advisor.\n\nCurrent game state (JSON):\n${stateBlock}\n\n${formats[explainLevel]}`;
 }
 
 // ── LLM Agent ────────────────────────────────────────────────────
 async function callAgent() {
-  setCallout('<span class="spinner">⟳</span> Agent thinking…', 'thinking');
-  // Re-set innerHTML for spinner
-  document.getElementById('agent-callout').innerHTML = '<span class="spinner">⟳</span> Agent thinking…';
-  document.getElementById('agent-callout').className = 'thinking';
+  setCallout('<span class="spinner">⟳</span> Consulting the consigliere…', 'thinking');
   setButtons(false, false);
 
   const { total, soft } = scoreHand(playerHand);
@@ -768,10 +867,9 @@ async function callAgent() {
     const data = await response.json();
     const { action, reasoning } = await parseAgentResponse(data);
 
-    // Record decision quality against basic strategy
     recordAgentDecision(action, total, soft, upValue);
 
-    setCallout(`Agent says: "${reasoning}"`, 'reasoning');
+    setCallout(`"${reasoning}"`, 'reasoning');
 
     const btnId      = action === 'hit' ? 'btn-hit' : 'btn-stand';
     const otherBtnId = action === 'hit' ? 'btn-stand' : 'btn-hit';
@@ -788,7 +886,7 @@ async function callAgent() {
 
   } catch (err) {
     console.error('[AGENT] Error:', err.message);
-    setCallout('Agent unavailable — play manually', 'manual');
+    setCallout('Consigliere is unavailable — play it yourself', 'manual');
     setButtons(true, true);
   }
 }
@@ -796,7 +894,6 @@ async function callAgent() {
 async function parseAgentResponse(apiResponse) {
   const raw = apiResponse.choices[0].message.content.trim();
   console.log('[AGENT] Raw LLM response:', raw);
-
   const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
   let parsed;
   try {
@@ -805,13 +902,11 @@ async function parseAgentResponse(apiResponse) {
     console.error('[AGENT] JSON parse failed:', e.message, '| Raw:', raw);
     throw new Error('Agent returned non-JSON response');
   }
-
   const action = parsed.action?.toLowerCase();
   if (action !== 'hit' && action !== 'stand') {
     console.error('[AGENT] Unexpected action value:', action);
     throw new Error(`Invalid action: ${action}`);
   }
-
   console.log(`[AGENT] Action: ${action} | Reasoning: ${parsed.reasoning}`);
   return { action, reasoning: parsed.reasoning ?? '' };
 }
@@ -823,11 +918,9 @@ function playerHit(fromAgent = false) {
   const card = drawCard();
   playerHand.push(card);
   renderHand('player-cards', playerHand);
-
   const { total, soft } = scoreHand(playerHand);
   document.getElementById('player-score').textContent = `${total}${soft ? ' (soft)' : ''}`;
   console.log(`[GAME] Player hits: ${cardLabel(card)}  total=${total} soft=${soft}`);
-
   if (total > 21) {
     hideStrategyViz();
     console.log('[GAME] Player busts');
@@ -849,7 +942,7 @@ function playerStand(fromAgent = false) {
 async function dealerTurn() {
   gameState = 'DEALER_TURN';
   console.log('[GAME] State → DEALER_TURN');
-  setCallout("Dealer's turn…", '');
+  setCallout("The house plays its hand…", '');
   setButtons(false, false);
 
   const holeEl = document.getElementById('dealer-hole-card');
@@ -893,33 +986,33 @@ function resolveResult(type) {
 
   if (type === 'blackjack') {
     balanceDelta = Math.floor(BET * 1.5);
-    resultText = `🃏 Blackjack! +$${balanceDelta}`; resultClass = 'blackjack'; outcome = 'blackjack';
+    resultText = `Blackjack — you take $${balanceDelta}, boss.`; resultClass = 'blackjack'; outcome = 'blackjack';
     console.log('[GAME] Result: BLACKJACK');
   } else if (type === 'bust') {
     balanceDelta = -BET;
-    resultText = `Bust — You lose $${BET}`; resultClass = 'bust'; outcome = 'bust';
+    resultText = `Busted. That'll cost you $${BET}.`; resultClass = 'bust'; outcome = 'bust';
     console.log('[GAME] Result: BUST');
   } else if (type === 'push') {
     balanceDelta = 0;
-    resultText = 'Push — No change'; resultClass = 'push'; outcome = 'push';
+    resultText = 'A draw. Nobody moves.'; resultClass = 'push'; outcome = 'push';
     console.log('[GAME] Result: PUSH');
   } else {
     const pBust = pFinal.total > 21;
     const dBust = dFinal.total > 21;
     if (pBust) {
-      balanceDelta = -BET; resultText = `Bust — You lose $${BET}`; resultClass = 'bust'; outcome = 'bust';
+      balanceDelta = -BET; resultText = `Busted. That'll cost you $${BET}.`; resultClass = 'bust'; outcome = 'bust';
       console.log('[GAME] Result: BUST');
     } else if (dBust) {
-      balanceDelta = BET; resultText = `Dealer busts — You win $${BET}!`; resultClass = 'win'; outcome = 'win';
+      balanceDelta = BET; resultText = `House busts. Collect your $${BET}.`; resultClass = 'win'; outcome = 'win';
       console.log('[GAME] Result: WIN (dealer bust)');
     } else if (pFinal.total > dFinal.total) {
-      balanceDelta = BET; resultText = `You win $${BET}!`; resultClass = 'win'; outcome = 'win';
+      balanceDelta = BET; resultText = `You win $${BET}. Smart play.`; resultClass = 'win'; outcome = 'win';
       console.log('[GAME] Result: WIN');
     } else if (pFinal.total < dFinal.total) {
-      balanceDelta = -BET; resultText = `You lose $${BET}`; resultClass = 'lose'; outcome = 'lose';
+      balanceDelta = -BET; resultText = `House wins. You're down $${BET}.`; resultClass = 'lose'; outcome = 'lose';
       console.log('[GAME] Result: LOSE');
     } else {
-      balanceDelta = 0; resultText = 'Push — No change'; resultClass = 'push'; outcome = 'push';
+      balanceDelta = 0; resultText = 'A draw. Nobody moves.'; resultClass = 'push'; outcome = 'push';
       console.log('[GAME] Result: PUSH');
     }
   }
@@ -931,11 +1024,11 @@ function resolveResult(type) {
   recordResult(outcome);
 
   if (balance <= 0) {
-    setCallout('Game Over — Refresh to restart', 'error');
+    setCallout('You\'re cleaned out. Refresh to start over.', 'error');
     document.getElementById('btn-new-hand').disabled = true;
     console.log('[GAME] Game over — balance reached $0');
   } else {
-    setCallout('Hand complete.', '');
+    setCallout('The hand is settled.', '');
     document.getElementById('btn-new-hand').disabled = false;
   }
 }
@@ -943,7 +1036,7 @@ function resolveResult(type) {
 // ── Init ─────────────────────────────────────────────────────────
 deck = shuffleDeck(buildDeck());
 updateBalance();
-console.log('[GAME] Blackjack AI Agent ready. Upload your .env to begin.');
+console.log('[GAME] The Family\'s Table is open. Upload your .env to begin.');
 </script>
 </body>
 </html>
