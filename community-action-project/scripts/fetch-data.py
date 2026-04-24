@@ -143,10 +143,10 @@ def main():
         json.dump(data, f, indent=2)
 
     print(f"\n✓ Saved to {out_path}")
-    print(f"  Total raised:    ${data['total_raised']:,.2f}")
-    print(f"  Participants:    {data['participant_count']}")
-    print(f"  Tributes:        {data['tribute_count']}")
-    print(f"  Top fundraisers: {len(data['top_fundraisers'])}")
+    print(f"  Total raised:  ${data['total_raised']:,.2f}")
+    print(f"  Participants:  {data['participant_count']}")
+    for d in data.get('divisions', []):
+        print(f"    {d['name']}: {d['count']}")
 
 
 if __name__ == '__main__':
