@@ -1,19 +1,19 @@
 {
-  "fetched_at": "2026-04-24T01:11:55.535621+00:00",
+  "fetched_at": "2026-04-24T01:15:14.966054+00:00",
   "total_raised": 60.0,
   "participant_count": 2,
   "tribute_count": 0,
   "divisions": [
     {
-      "name": "Event 1143131",
+      "name": "Adult 5k Run/Walk",
       "count": 1
     },
     {
-      "name": "Event 1143134",
+      "name": "Kids 5k Run/Walk",
       "count": 0
     },
     {
-      "name": "Event 1143135",
+      "name": "Seniors/Students 5k Run/Walk",
       "count": 1
     }
   ]
