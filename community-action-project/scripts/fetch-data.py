@@ -84,6 +84,7 @@ def fetch_all(api_key, api_secret, race_id):
     # Personal data is read only to extract the fee — never stored.
     participant_count = 0
     total_raised      = 0.0
+    divisions         = {}  # event_id -> {name, count}
 
     for eid in event_ids:
         page = 1
@@ -95,10 +96,14 @@ def fetch_all(api_key, api_secret, race_id):
                 break
             page_count = 0
             for group in resp:
+                event_name = group.get('event', {}).get('name', f'Event {eid}')
+                if eid not in divisions:
+                    divisions[eid] = {'name': event_name, 'count': 0}
                 for p in group.get('participants', []):
-                    page_count        += 1
-                    participant_count += 1
-                    total_raised      += parse_money(p.get('race_fee'))
+                    page_count              += 1
+                    participant_count       += 1
+                    divisions[eid]['count'] += 1
+                    total_raised            += parse_money(p.get('race_fee'))
             if page_count < 100:
                 break
             page += 1
@@ -108,7 +113,7 @@ def fetch_all(api_key, api_secret, race_id):
         'total_raised':      round(total_raised, 2),
         'participant_count': participant_count,
         'tribute_count':     0,   # not available via RunSignup REST API
-        'top_fundraisers':   [],  # not available via RunSignup REST API
+        'divisions':         [{'name': v['name'], 'count': v['count']} for v in divisions.values()],
     }
 
 

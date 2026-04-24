@@ -94,19 +94,20 @@ function updateProgress(raised) {
   });
 }
 
-function updateLeaderboard(teams) {
-  const list = document.getElementById('leaderboard');
-  if (!teams || teams.length === 0) {
-    list.innerHTML = '<li class="leaderboard__placeholder">No teams yet — be the first to start a fundraising team!</li>';
+const DIVISION_ICONS = ['🏃', '🧒', '🎓'];
+
+function updateDivisions(divisions) {
+  const grid = document.getElementById('divisions-grid');
+  if (!divisions || divisions.length === 0) {
+    grid.innerHTML = '<div class="division-card division-card--placeholder">No division data yet.</div>';
     return;
   }
-  const medals = ['🥇', '🥈', '🥉'];
-  list.innerHTML = teams.slice(0, 10).map((t, i) => `
-    <li class="leaderboard__item">
-      <span class="leaderboard__rank">${medals[i] || '#' + (i + 1)}</span>
-      <span class="leaderboard__name">${escHtml(t.name)}</span>
-      <span class="leaderboard__amount">${formatMoneyFull(t.amount_raised)}</span>
-    </li>
+  grid.innerHTML = divisions.map((d, i) => `
+    <div class="division-card">
+      <span class="division-card__icon" aria-hidden="true">${DIVISION_ICONS[i] || '🏃'}</span>
+      <span class="division-card__count">${d.count.toLocaleString()}</span>
+      <span class="division-card__name">${escHtml(d.name)}</span>
+    </div>
   `).join('');
 }
 
@@ -197,7 +198,7 @@ function applyData(data) {
   updateHero(raised);
   updateStats(data);
   updateProgress(raised);
-  updateLeaderboard(data.top_fundraisers || []);
+  updateDivisions(data.divisions || []);
   setLastUpdated(data.fetched_at);
 }
 

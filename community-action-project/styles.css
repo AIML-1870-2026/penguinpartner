@@ -498,56 +498,54 @@ a:hover { text-decoration: underline; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   LEADERBOARD
+   DIVISIONS
 ══════════════════════════════════════════════════════════════════ */
-.leaderboard-section { background: var(--white); }
+.divisions-section { background: var(--white); }
 
-.leaderboard {
-  list-style: none;
-  max-width: 620px;
+.divisions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  max-width: 800px;
   margin: 0 auto;
+}
+
+.division-card {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-}
-
-.leaderboard__item {
-  display: flex;
   align-items: center;
-  gap: 1rem;
+  text-align: center;
+  padding: 2rem 1.25rem;
   background: var(--sky-pale);
   border-radius: var(--radius);
-  padding: 0.75rem 1.25rem;
-  border: 1.5px solid var(--sky-light);
-  transition: transform var(--transition);
+  border: 2px solid var(--sky-light);
+  transition: transform var(--transition), box-shadow var(--transition);
 }
-.leaderboard__item:hover { transform: translateX(4px); }
-
-.leaderboard__rank {
+.division-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+}
+.division-card__icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+.division-card__count {
   font-family: var(--font-display);
-  font-size: 1.3rem;
-  min-width: 2.2rem;
-  text-align: center;
-  color: var(--purple);
+  font-size: clamp(2.5rem, 6vw, 3.5rem);
+  color: var(--pink-hot);
+  line-height: 1;
 }
-.leaderboard__item:nth-child(1) .leaderboard__rank { color: #F9A825; }
-.leaderboard__item:nth-child(2) .leaderboard__rank { color: #78909C; }
-.leaderboard__item:nth-child(3) .leaderboard__rank { color: #A1887F; }
-
-.leaderboard__name {
+.division-card__name {
   font-family: var(--font-heading);
   font-weight: 700;
-  flex: 1;
+  font-size: 0.9rem;
+  color: var(--blue-royal);
+  margin-top: 0.4rem;
 }
-.leaderboard__amount {
-  font-family: var(--font-display);
-  color: var(--pink-hot);
-  font-size: 1.1rem;
-}
-.leaderboard__placeholder {
-  text-align: center;
+.division-card--placeholder {
   color: #888;
   font-family: var(--font-heading);
+  grid-column: 1 / -1;
   padding: 2rem;
 }
 
