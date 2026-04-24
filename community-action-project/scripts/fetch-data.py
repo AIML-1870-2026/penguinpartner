@@ -108,45 +108,10 @@ def fetch_all(api_key, api_secret, race_id):
                 break
             page += 1
 
-    # ── Donations ──────────────────────────────────────────────────
-    donation_total = 0.0
-    donation_count = 0
-
-    # Try several endpoint paths — RunSignup's API docs are inconsistent
-    donation_paths = [
-        (f'race/{race_id}/donations',          {**auth, 'page': 1, 'results_per_page': 250}),
-        ('donations',                           {**auth, 'race_id': race_id, 'page': 1, 'results_per_page': 250}),
-        (f'race/{race_id}/charity_donations',   {**auth, 'page': 1, 'results_per_page': 250}),
-        (f'race/{race_id}/fundraising',         {**auth, 'page': 1, 'results_per_page': 250}),
-    ]
-
-    for path, params in donation_paths:
-        resp = api_get(path, params)
-        if isinstance(resp, dict) and 'error' in resp:
-            continue
-        # Try common list key names
-        items = (resp.get('donations') or resp.get('donation') or
-                 resp.get('race_donations') or resp.get('results') or
-                 (resp if isinstance(resp, list) else []))
-        if items:
-            print(f"  ✓ Donations found at {path} — {len(items)} item(s)")
-            print(f"    item[0] keys: {list(items[0].keys()) if isinstance(items[0], dict) else items[0]}")
-            for d in items:
-                donation_total += parse_money(d.get('amount') or d.get('donation_amount') or 0)
-                donation_count += 1
-            break
-        else:
-            print(f"  Donations path {path}: responded but no items found. Keys: {list(resp.keys()) if isinstance(resp, dict) else type(resp)}")
-
-    print(f"  donation_total: ${donation_total:.2f}  donation_count: {donation_count}")
-
     return {
-        'fetched_at':        datetime.now(timezone.utc).isoformat(),
+        'fetched_at':         datetime.now(timezone.utc).isoformat(),
         'registration_total': round(total_raised, 2),
-        'donation_total':     round(donation_total, 2),
-        'total_raised':       round(total_raised + donation_total, 2),
         'participant_count':  participant_count,
-        'donation_count':     donation_count,
         'tribute_count':      0,
         'divisions':          [{'name': v['name'], 'count': v['count']} for v in divisions.values()],
     }
@@ -173,11 +138,25 @@ def main():
     print(f"Fetching data for race {race_id}...")
     data = fetch_all(api_key, api_secret, race_id)
 
+    # Merge manual overrides (donations not available via RunSignup API)
+    manual_path = out_path.parent / 'manual-data.json'
+    donation_total = 0.0
+    if manual_path.exists():
+        with open(manual_path) as f:
+            manual = json.load(f)
+        donation_total = float(manual.get('donation_total', 0))
+        print(f"  Manual donation_total: ${donation_total:.2f}")
+
+    data['donation_total'] = round(donation_total, 2)
+    data['total_raised']   = round(data['registration_total'] + donation_total, 2)
+
     out_path.parent.mkdir(exist_ok=True)
     with open(out_path, 'w') as f:
         json.dump(data, f, indent=2)
 
     print(f"\n✓ Saved to {out_path}")
+    print(f"  Registrations: ${data['registration_total']:,.2f}")
+    print(f"  Donations:     ${data['donation_total']:,.2f}")
     print(f"  Total raised:  ${data['total_raised']:,.2f}")
     print(f"  Participants:  {data['participant_count']}")
     for d in data.get('divisions', []):
