@@ -1,0 +1,36 @@
+name: Refresh Race Data
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # every hour
+  workflow_dispatch:        # allows manual trigger from GitHub Actions tab
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch race data from RunSignup
+        env:
+          RUNSIGNUP_API_KEY:    ${{ secrets.RUNSIGNUP_API_KEY }}
+          RUNSIGNUP_API_SECRET: ${{ secrets.RUNSIGNUP_API_SECRET }}
+          RUNSIGNUP_RACE_ID:    '204626'
+        run: python3 community-action-project/scripts/fetch-data.py
+
+      - name: Commit updated data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add community-action-project/data/race-data.json
+          git diff --cached --quiet || git commit -m "chore: refresh race data [skip ci]"
+          git push

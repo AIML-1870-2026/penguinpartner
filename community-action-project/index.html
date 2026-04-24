@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Track live fundraising progress for the Magical Marvelous Memories 5K benefiting Memories for Kids — October 11, 2026 at Cunningham Lake, Omaha NE.">
+  <title>Magical Marvelous Memories 5K — Fundraising Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Fredoka+One&family=Nunito:wght@400;600;700;800&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <noscript>
+    <div class="noscript-banner" role="alert">
+      JavaScript is required to display live fundraising data. Please enable JavaScript or visit
+      <a href="https://runsignup.com/Race/204626">runsignup.com</a> for current information.
+    </div>
+  </noscript>
+
+  <!-- ── HERO ──────────────────────────────────────────────────────── -->
+  <header class="hero" id="top">
+    <div class="hero__inner">
+      <div class="hero__logo-wrap">
+        <img
+          src="images/mfk-logo.png"
+          alt="Memories for Kids"
+          class="hero__logo"
+          onerror="this.style.display='none'"
+        >
+      </div>
+
+      <div class="hero__content">
+        <p class="hero__presents">Memories for Kids Presents&hellip;</p>
+
+        <h1 class="hero__title">
+          <span class="hero__magical">Magical</span>
+          <span class="hero__marvelous">MARVELOUS</span>
+          <span class="hero__memories">MEMORIES 5K RUN/WALK</span>
+        </h1>
+
+        <p class="hero__event-details">
+          October&nbsp;11,&nbsp;2026 &middot; 10:00&nbsp;AM &middot; Cunningham&nbsp;Lake,&nbsp;Omaha&nbsp;NE
+        </p>
+
+        <div class="hero__badge" role="note">
+          🦸 Come dressed as your favorite superhero or fairy tale character &mdash; costume contest!
+        </div>
+
+        <div class="hero__progress-wrap">
+          <div class="hero__progress-labels">
+            <span id="hero-raised" class="hero__raised">Loading&hellip;</span>
+            <span>raised toward our <strong>$25,000</strong> goal</span>
+            <span id="hero-pct" class="hero__pct"></span>
+          </div>
+          <div
+            class="hero__track"
+            role="progressbar"
+            aria-valuenow="0"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-label="Fundraising progress toward $25,000 goal"
+            id="hero-track"
+          >
+            <div class="hero__fill" id="hero-fill"></div>
+            <div class="hero__milestones" aria-hidden="true">
+              <span class="hero__ms" style="left:20%">$5k</span>
+              <span class="hero__ms" style="left:40%">$10k</span>
+              <span class="hero__ms" style="left:60%">$15k</span>
+              <span class="hero__ms" style="left:80%">$20k</span>
+              <span class="hero__ms" style="left:99%">🏁</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero__ctas">
+          <!-- Update the URLs below with the live RunSignup event URL once confirmed -->
+          <a href="https://runsignup.com/Race/204626" class="btn btn--primary" target="_blank" rel="noopener noreferrer">
+            Register for the 5K
+          </a>
+          <a href="https://runsignup.com/Race/204626/Donate" class="btn btn--secondary" target="_blank" rel="noopener noreferrer">
+            Donate Now
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── CLOUD DIVIDER ─────────────────────────────────────────────── -->
+  <div class="cloud-divider" aria-hidden="true">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,80 C200,10 400,70 600,40 C800,10 1000,65 1200,32 C1340,10 1400,55 1440,42 L1440,80 Z" fill="#ffffff"/>
+    </svg>
+  </div>
+
+  <main id="main-content">
+
+    <!-- ── LIVE STATS BAR ──────────────────────────────────────────── -->
+    <section class="stats-bar" aria-label="Live fundraising statistics">
+      <div class="container">
+        <div class="stats-bar__grid">
+          <article class="stat-card">
+            <span class="stat-card__icon" aria-hidden="true">💰</span>
+            <span class="stat-card__value" id="stat-raised">$0</span>
+            <span class="stat-card__label">Total Raised</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-card__icon" aria-hidden="true">🏃</span>
+            <span class="stat-card__value" id="stat-runners">0</span>
+            <span class="stat-card__label">Registered Runners</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-card__icon" aria-hidden="true">✨</span>
+            <span class="stat-card__value" id="stat-tributes">0</span>
+            <span class="stat-card__label">Tributes Submitted</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-card__icon" aria-hidden="true">📅</span>
+            <span class="stat-card__value" id="stat-days">—</span>
+            <span class="stat-card__label">Days Until Race</span>
+          </article>
+        </div>
+        <p class="stats-bar__meta">
+          Last updated: <time id="last-updated">—</time>
+          <button class="refresh-btn" id="refresh-btn" aria-label="Refresh fundraising data">↻ Refresh</button>
+        </p>
+      </div>
+    </section>
+
+    <!-- ── FUNDRAISING PROGRESS ────────────────────────────────────── -->
+    <section class="progress-section section" aria-labelledby="progress-heading">
+      <div class="container">
+        <h2 id="progress-heading" class="section__title">🏆 Fundraising Progress</h2>
+        <div class="thermometer-layout">
+          <div class="thermometer-wrap" aria-hidden="true">
+            <div class="thermometer">
+              <div class="thermometer__tube">
+                <div class="thermometer__fill" id="therm-fill"></div>
+              </div>
+              <div class="thermometer__bulb"></div>
+            </div>
+          </div>
+          <ol class="milestone-list" aria-label="Fundraising milestones">
+            <li class="milestone-badge" id="ms-25k" data-goal="25000">
+              <span class="ms-amount">$25,000 🎉</span>
+              <span class="ms-label">Goal!</span>
+            </li>
+            <li class="milestone-badge" id="ms-20k" data-goal="20000">
+              <span class="ms-amount">$20,000</span>
+            </li>
+            <li class="milestone-badge" id="ms-15k" data-goal="15000">
+              <span class="ms-amount">$15,000</span>
+            </li>
+            <li class="milestone-badge" id="ms-10k" data-goal="10000">
+              <span class="ms-amount">$10,000</span>
+            </li>
+            <li class="milestone-badge" id="ms-5k" data-goal="5000">
+              <span class="ms-amount">$5,000</span>
+            </li>
+          </ol>
+        </div>
+        <p class="progress-detail">
+          <strong id="prog-raised">$0</strong> raised of $25,000 goal
+          &nbsp;&bull;&nbsp;
+          <strong id="prog-pct">0%</strong> complete
+        </p>
+      </div>
+    </section>
+
+    <!-- ── TRIBUTES ───────────────────────────────────────────────── -->
+    <section class="tributes-section section" aria-labelledby="tributes-heading">
+      <div class="container tributes-section__inner">
+        <h2 id="tributes-heading" class="section__title">💛 Tributes</h2>
+        <p class="tributes-section__intro">
+          Every step carries a memory. Each tribute represents a family, a story, a reason to run together.
+        </p>
+        <div class="tribute-count-card" aria-live="polite">
+          <span class="tribute-count" id="tribute-count">0</span>
+          <span class="tribute-count__label">tributes submitted in love</span>
+        </div>
+        <a
+          href="https://runsignup.com/Race/204626/Tributes"
+          class="btn btn--outline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >View All Tributes on RunSignup &rarr;</a>
+      </div>
+    </section>
+
+    <!-- ── TOP FUNDRAISERS ────────────────────────────────────────── -->
+    <section class="leaderboard-section section" aria-labelledby="leaderboard-heading">
+      <div class="container">
+        <h2 id="leaderboard-heading" class="section__title">🥇 Top Fundraisers</h2>
+        <ol class="leaderboard" id="leaderboard" aria-label="Top 10 fundraisers">
+          <li class="leaderboard__placeholder">Fundraiser data loading&hellip;</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ── SPONSORS ───────────────────────────────────────────────── -->
+    <section class="sponsors-section section" aria-labelledby="sponsors-heading">
+      <div class="container">
+        <h2 id="sponsors-heading" class="section__title">🌟 Our Community Champions</h2>
+        <p class="sponsors-section__sub">These heroes make every memory possible.</p>
+        <div id="sponsors-grid" class="sponsors-grid" aria-label="Event sponsors by tier"></div>
+        <p class="sponsors-section__cta">
+          Become a sponsor: <a href="mailto:info@memoriesforkids.org">info@memoriesforkids.org</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- ── ABOUT ──────────────────────────────────────────────────── -->
+    <section class="about-section section" aria-labelledby="about-heading">
+      <div class="container about-section__inner">
+        <h2 id="about-heading" class="section__title">About Memories for Kids</h2>
+        <p>
+          <strong>Memories for Kids</strong> is an Omaha-based nonprofit dedicated to creating
+          extraordinary memories for families navigating a parent's stage IV cancer diagnosis.
+          When time is the most precious thing, they make it unforgettable &mdash; funding fingerprint
+          necklaces, recorded message keepsakes, Disney World trips, and other deeply meaningful
+          experiences that families will treasure always.
+        </p>
+        <p>
+          The <em>Magical Marvelous Memories 5K</em> is a community celebration in their honor.
+          Lace up, dress up, and show up &mdash; every step and every dollar makes memories that matter.
+        </p>
+        <a
+          href="https://www.memoriesforkids.org"
+          class="btn btn--primary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Learn More at MemoriesForKids.org &rarr;</a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER ─────────────────────────────────────────────────── -->
+  <footer class="footer" role="contentinfo">
+    <div class="container footer__inner">
+      <p class="footer__name">Magical Marvelous Memories 5K Run/Walk</p>
+      <p class="footer__details">
+        October 11, 2026 &middot; 10:00 AM &middot; Cunningham Lake, 8965 State St, Omaha, NE 68122
+      </p>
+      <nav class="footer__links" aria-label="Footer navigation">
+        <a href="https://runsignup.com/Race/204626" target="_blank" rel="noopener noreferrer">Register / Donate</a>
+        <a href="https://www.memoriesforkids.org" target="_blank" rel="noopener noreferrer">Memories for Kids</a>
+      </nav>
+      <div class="footer__share">
+        <span class="footer__share-label">Share:</span>
+        <a
+          href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Frunsignup.com%2FRace%2F204626"
+          target="_blank" rel="noopener noreferrer"
+          aria-label="Share on Facebook"
+          class="footer__share-link"
+        >Facebook</a>
+        <a
+          href="https://twitter.com/intent/tweet?text=Join%20the%20Magical%20Marvelous%20Memories%205K%20for%20Memories%20for%20Kids%21%20Oct%2011%2C%202026%20%E2%80%94%20Omaha%2C%20NE&url=https%3A%2F%2Frunsignup.com%2FRace%2F204626"
+          target="_blank" rel="noopener noreferrer"
+          aria-label="Share on Twitter / X"
+          class="footer__share-link"
+        >Twitter / X</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="sponsors.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
