@@ -1,5 +1,5 @@
 {
-  "fetched_at": "2026-04-24T13:51:25.242345+00:00",
+  "fetched_at": "2026-04-24T13:58:46.116089+00:00",
   "registration_total": 60.0,
   "participant_count": 2,
   "tribute_count": 0,
@@ -17,6 +17,6 @@
       "count": 1
     }
   ],
-  "donation_total": 50.0,
-  "total_raised": 110.0
+  "donation_total": 150.0,
+  "total_raised": 210.0
 }
