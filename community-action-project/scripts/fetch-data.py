@@ -43,13 +43,18 @@ def load_env(root):
 
 def api_get(path, params):
     url = 'https://runsignup.com/Rest/' + path.lstrip('/') + '?' + urllib.parse.urlencode(params)
+    print(f"    GET {url.split('?')[0]}")
     req = urllib.request.Request(url, headers={'Accept': 'application/json'})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())
+            data = json.loads(r.read())
+            if 'error' in data:
+                err = data['error']
+                print(f"    !! API error {err.get('error_code')}: {err.get('error_msg')}")
+            return data
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors='replace')
-        sys.exit(f"API error {e.code} on {path}: {body}")
+        sys.exit(f"HTTP error {e.code} on {path}: {body}")
 
 
 def debug_keys(label, resp):
