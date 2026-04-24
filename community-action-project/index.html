@@ -12,15 +12,6 @@
 </head>
 <body>
 
-  <!-- ── PAGE BACKGROUND: drifting clouds ─────────────────────────── -->
-  <div class="scene-bg" aria-hidden="true">
-    <div class="cloud cloud--1"></div>
-    <div class="cloud cloud--2"></div>
-    <div class="cloud cloud--3"></div>
-    <div class="cloud cloud--4"></div>
-    <div class="cloud cloud--5"></div>
-  </div>
-
   <noscript>
     <div class="noscript-banner" role="alert">
       JavaScript is required to display live fundraising data. Please enable JavaScript or visit
@@ -30,6 +21,16 @@
 
   <!-- ── HERO ──────────────────────────────────────────────────────── -->
   <header class="hero" id="top">
+
+    <!-- Drifting clouds (clipped to hero by overflow:hidden) -->
+    <div class="scene-bg" aria-hidden="true">
+      <div class="cloud cloud--1"></div>
+      <div class="cloud cloud--2"></div>
+      <div class="cloud cloud--3"></div>
+      <div class="cloud cloud--4"></div>
+      <div class="cloud cloud--5"></div>
+    </div>
+
     <div class="hero__inner">
       <div class="hero__logo-wrap">
         <img
