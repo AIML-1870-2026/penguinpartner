@@ -11,5 +11,5 @@
  *   { tier: 'king-queen',      name: 'Main Street', logo: null },
  */
 const SPONSORS = [
-  // Sponsors will be added here as they are confirmed.
+  { tier: 'sidekick', name: 'Maxximiliano Godejohn', logo: null },
 ];
