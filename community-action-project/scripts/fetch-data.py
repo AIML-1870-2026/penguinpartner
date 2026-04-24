@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """
-Fetches race data from the RunSignup API and writes it to data/race-data.json.
+Fetches race data from the RunSignup API and writes aggregate totals to
+data/race-data.json. No personal data (names, emails, addresses) is stored.
 
 Usage (run from the community-action-project folder):
   python3 scripts/fetch-data.py
 
-Credentials are read from api.env in the project root.
-
-api.env format:
-  RUNSIGNUP_API_KEY=your_key_here
-  RUNSIGNUP_API_SECRET=your_secret_here
-  RUNSIGNUP_RACE_ID=204626
+Credentials are read from api.env in the project root, or from environment
+variables RUNSIGNUP_API_KEY / RUNSIGNUP_API_SECRET (used by GitHub Actions).
 """
 import json
 import os
@@ -43,56 +40,50 @@ def load_env(root):
 
 def api_get(path, params):
     url = 'https://runsignup.com/Rest/' + path.lstrip('/') + '?' + urllib.parse.urlencode(params)
-    print(f"    GET {url.split('?')[0]}")
     req = urllib.request.Request(url, headers={'Accept': 'application/json'})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             data = json.loads(r.read())
-            if 'error' in data:
+            if isinstance(data, dict) and 'error' in data:
                 err = data['error']
-                print(f"    !! API error {err.get('error_code')}: {err.get('error_msg')}")
+                print(f"  !! API error {err.get('error_code')}: {err.get('error_msg')}")
             return data
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors='replace')
         sys.exit(f"HTTP error {e.code} on {path}: {body}")
 
 
-def debug_keys(label, resp):
-    if isinstance(resp, list):
-        print(f"\n  --- {label}: LIST of {len(resp)} items")
-        if resp and isinstance(resp[0], dict):
-            print(f"      item[0] keys: {list(resp[0].keys())}")
-        return
-    print(f"\n  --- {label} keys: {list(resp.keys())}")
-    for k, v in resp.items():
-        if isinstance(v, list) and v:
-            first = v[0]
-            print(f"      {k}[0] keys: {list(first.keys()) if isinstance(first, dict) else type(first).__name__}")
-        elif isinstance(v, dict):
-            print(f"      {k} keys: {list(v.keys())}")
-        else:
-            print(f"      {k}: {repr(v)[:200]}")
+def parse_money(value):
+    """Convert '$38.10' or '38.10' or 38.10 to a float."""
+    if value is None:
+        return 0.0
+    return float(str(value).replace('$', '').replace(',', '').strip() or 0)
 
 
-def fetch_all(api_key, api_secret, race_id):
-    auth = {'api_key': api_key, 'api_secret': api_secret, 'format': 'json'}
-
-    # ── Race info → get event IDs ──────────────────────────────────
-    race_resp = api_get(f'race/{race_id}', auth)
-    race   = race_resp.get('race', {})
+def get_event_ids(race_id, auth):
+    resp   = api_get(f'race/{race_id}', auth)
+    race   = resp.get('race', {})
     events = race.get('events', {})
     if isinstance(events, dict):
         events = events.get('event', [])
     if isinstance(events, dict):
         events = [events]
-    event_ids = [e.get('event_id') for e in events if e.get('event_id')]
-    print(f"\n  Events: {[(e.get('event_id'), e.get('name')) for e in events]}")
+    ids = [e.get('event_id') for e in events if e.get('event_id')]
+    print(f"  Found {len(ids)} event(s): {[(e.get('event_id'), e.get('name')) for e in events]}")
+    return ids
+
+
+def fetch_all(api_key, api_secret, race_id):
+    auth = {'api_key': api_key, 'api_secret': api_secret, 'format': 'json'}
+
+    event_ids = get_event_ids(race_id, auth)
 
     # ── Participants + total raised ────────────────────────────────
-    # Response shape: [{"event": {...}, "participants": [{...}, ...]}, ...]
+    # Response: [{"event": {...}, "participants": [{...}, ...]}, ...]
+    # race_fee = registration amount going to the race (excludes processor cut)
+    # Personal data is read only to extract the fee — never stored.
     participant_count = 0
     total_raised      = 0.0
-    printed_sample    = False
 
     for eid in event_ids:
         page = 1
@@ -105,39 +96,23 @@ def fetch_all(api_key, api_secret, race_id):
             page_count = 0
             for group in resp:
                 for p in group.get('participants', []):
-                    page_count      += 1
+                    page_count        += 1
                     participant_count += 1
-                    # Print one participant's full keys + sample so we can find the payment field
-                    if not printed_sample:
-                        print(f"\n  participant keys: {list(p.keys())}")
-                        print(f"  participant sample: {json.dumps(p)[:800]}")
-                        printed_sample = True
-                    # Try every plausible payment field name
-                    paid = (p.get('amount_paid') or p.get('total_amount') or
-                            p.get('registration_amount') or p.get('amount') or
-                            p.get('price') or p.get('cost') or 0)
-                    total_raised += float(paid)
+                    total_raised      += parse_money(p.get('race_fee'))
             if page_count < 100:
                 break
             page += 1
-
-    print(f"\n  participant_count: {participant_count}")
-    print(f"  total_raised (summed from participant fields): ${total_raised:.2f}")
-
-    tribute_count  = 0
-    top_fundraisers = []
 
     return {
         'fetched_at':        datetime.now(timezone.utc).isoformat(),
         'total_raised':      round(total_raised, 2),
         'participant_count': participant_count,
-        'tribute_count':     tribute_count,
-        'top_fundraisers':   top_fundraisers,
+        'tribute_count':     0,   # not available via RunSignup REST API
+        'top_fundraisers':   [],  # not available via RunSignup REST API
     }
 
 
 def main():
-    # Support env vars as well as api.env (used by GitHub Actions)
     api_key    = os.environ.get('RUNSIGNUP_API_KEY')
     api_secret = os.environ.get('RUNSIGNUP_API_SECRET')
     race_id    = os.environ.get('RUNSIGNUP_RACE_ID', '204626')
