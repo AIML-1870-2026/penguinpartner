@@ -58,59 +58,70 @@ def api_get(path, params):
 
 
 def debug_keys(label, resp):
-    """Print top-level keys and any nested keys one level deep so we can see the response shape."""
-    print(f"\n  --- {label} response keys: {list(resp.keys())}")
+    print(f"\n  --- {label} keys: {list(resp.keys())}")
     for k, v in resp.items():
         if isinstance(v, list) and v:
-            print(f"      {k}[0] keys: {list(v[0].keys()) if isinstance(v[0], dict) else type(v[0]).__name__}")
+            first = v[0]
+            print(f"      {k}[0] keys: {list(first.keys()) if isinstance(first, dict) else type(first).__name__}")
         elif isinstance(v, dict):
-            print(f"      {k} keys: {list(v.keys())}")
+            print(f"      {k}: {json.dumps(v)[:200]}")
         else:
-            print(f"      {k}: {repr(v)[:120]}")
+            print(f"      {k}: {repr(v)[:200]}")
 
 
 def fetch_all(api_key, api_secret, race_id):
     auth = {'api_key': api_key, 'api_secret': api_secret, 'format': 'json'}
 
-    print("  Fetching participant count...")
-    p = api_get(f'race/{race_id}/participants', {**auth, 'page': 1, 'results_per_page': 1})
-    debug_keys("participants", p)
-    # Try both common key names RunSignup uses
-    participant_count = int(
-        p.get('total_results') or p.get('num_results') or
-        len(p.get('participants') or p.get('participant') or [])
-    )
+    # ── Race info ──────────────────────────────────────────────────
+    print("  Fetching race info...")
+    race_resp = api_get(f'race/{race_id}', auth)
+    debug_keys("race", race_resp)
 
-    print("\n  Fetching donations...")
-    d = api_get(f'race/{race_id}/donations', {**auth, 'page': 1, 'results_per_page': 250})
-    debug_keys("donations", d)
-    donations_list = d.get('donations') or d.get('race_donations') or d.get('donation') or []
-    total_raised = sum(float(x.get('amount', 0)) for x in donations_list)
-    total_donations = int(d.get('total_results') or d.get('num_results') or len(donations_list))
-    if total_donations > 250:
-        for page in range(2, -(-total_donations // 250) + 1):
-            r = api_get(f'race/{race_id}/donations', {**auth, 'page': page, 'results_per_page': 250})
-            page_list = r.get('donations') or r.get('race_donations') or r.get('donation') or []
-            total_raised += sum(float(x.get('amount', 0)) for x in page_list)
+    race = race_resp.get('race', {})
+    events = race.get('events', {})
+    if isinstance(events, dict):
+        events = events.get('event', [])
+    if isinstance(events, dict):   # single event returned as object not list
+        events = [events]
+    print(f"\n  Found {len(events)} event(s):")
+    for e in events:
+        print(f"    event_id={e.get('event_id')}  name={e.get('name')}")
 
-    print("\n  Fetching tribute count...")
-    t = api_get(f'race/{race_id}/tributes', {**auth, 'page': 1, 'results_per_page': 1})
-    debug_keys("tributes", t)
-    tribute_count = int(
-        t.get('total_results') or t.get('num_results') or
-        len(t.get('tributes') or t.get('tribute') or [])
-    )
+    event_id = events[0].get('event_id') if events else None
 
-    print("\n  Fetching top fundraising teams...")
-    ft = api_get(f'race/{race_id}/fundraising-teams', {
-        **auth, 'page': 1, 'results_per_page': 10, 'sort': 'amount_raised DESC'
-    })
-    debug_keys("fundraising-teams", ft)
-    teams_list = ft.get('fundraising_teams') or ft.get('fundraising-teams') or ft.get('teams') or []
-    top_fundraisers = [
-        {'name': x.get('name', 'Anonymous'), 'amount_raised': float(x.get('amount_raised', 0))}
-        for x in teams_list[:10]
-    ]
+    # ── Participants ───────────────────────────────────────────────
+    participant_count = 0
+    if event_id:
+        print(f"\n  Fetching participants for event_id={event_id}...")
+        p = api_get(f'race/{race_id}/participants', {**auth, 'event_id': event_id, 'page': 1, 'results_per_page': 1})
+        debug_keys("participants", p)
+        participant_count = int(p.get('total_results') or p.get('num_results') or 0)
+    else:
+        print("\n  No event_id found — skipping participant fetch")
+
+    # ── Total raised ───────────────────────────────────────────────
+    # Try to pull from race-level fundraising stats
+    total_raised = 0.0
+    print("\n  Fetching fundraising pages (for total raised)...")
+    fp = api_get(f'race/{race_id}/fundraising-pages', {**auth, 'page': 1, 'results_per_page': 1})
+    debug_keys("fundraising-pages", fp)
+
+    print("\n  Fetching race donations...")
+    rd = api_get(f'race/{race_id}/race-donations', {**auth, 'page': 1, 'results_per_page': 1})
+    debug_keys("race-donations", rd)
+
+    # ── Tributes ───────────────────────────────────────────────────
+    tribute_count = 0
+    print("\n  Fetching tributes...")
+    t = api_get(f'race/{race_id}/tribute', {**auth, 'page': 1, 'results_per_page': 1})
+    debug_keys("tribute", t)
+    tribute_count = int(t.get('total_results') or t.get('num_results') or 0)
+
+    # ── Fundraising teams ──────────────────────────────────────────
+    top_fundraisers = []
+    print("\n  Fetching fundraising teams...")
+    ft = api_get(f'race/{race_id}/fundraising_teams', {**auth, 'page': 1, 'results_per_page': 10})
+    debug_keys("fundraising_teams", ft)
 
     return {
         'fetched_at':        datetime.now(timezone.utc).isoformat(),
