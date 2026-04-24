@@ -60,7 +60,7 @@ def parse_money(value):
     return float(str(value).replace('$', '').replace(',', '').strip() or 0)
 
 
-def get_event_ids(race_id, auth):
+def get_events(race_id, auth):
     resp   = api_get(f'race/{race_id}', auth)
     race   = resp.get('race', {})
     events = race.get('events', {})
@@ -68,15 +68,16 @@ def get_event_ids(race_id, auth):
         events = events.get('event', [])
     if isinstance(events, dict):
         events = [events]
-    ids = [e.get('event_id') for e in events if e.get('event_id')]
-    print(f"  Found {len(ids)} event(s): {[(e.get('event_id'), e.get('name')) for e in events]}")
-    return ids
+    ids   = [e.get('event_id') for e in events if e.get('event_id')]
+    names = {e.get('event_id'): e.get('name', f"Event {e.get('event_id')}") for e in events}
+    print(f"  Found {len(ids)} event(s): {list(names.items())}")
+    return ids, names
 
 
 def fetch_all(api_key, api_secret, race_id):
     auth = {'api_key': api_key, 'api_secret': api_secret, 'format': 'json'}
 
-    event_ids = get_event_ids(race_id, auth)
+    event_ids, event_names = get_events(race_id, auth)
 
     # ── Participants + total raised ────────────────────────────────
     # Response: [{"event": {...}, "participants": [{...}, ...]}, ...]
@@ -96,9 +97,8 @@ def fetch_all(api_key, api_secret, race_id):
                 break
             page_count = 0
             for group in resp:
-                event_name = group.get('event', {}).get('name', f'Event {eid}')
                 if eid not in divisions:
-                    divisions[eid] = {'name': event_name, 'count': 0}
+                    divisions[eid] = {'name': event_names.get(eid, f'Event {eid}'), 'count': 0}
                 for p in group.get('participants', []):
                     page_count              += 1
                     participant_count       += 1
