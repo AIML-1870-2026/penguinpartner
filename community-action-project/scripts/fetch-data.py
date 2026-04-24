@@ -52,33 +52,59 @@ def api_get(path, params):
         sys.exit(f"API error {e.code} on {path}: {body}")
 
 
+def debug_keys(label, resp):
+    """Print top-level keys and any nested keys one level deep so we can see the response shape."""
+    print(f"\n  --- {label} response keys: {list(resp.keys())}")
+    for k, v in resp.items():
+        if isinstance(v, list) and v:
+            print(f"      {k}[0] keys: {list(v[0].keys()) if isinstance(v[0], dict) else type(v[0]).__name__}")
+        elif isinstance(v, dict):
+            print(f"      {k} keys: {list(v.keys())}")
+        else:
+            print(f"      {k}: {repr(v)[:120]}")
+
+
 def fetch_all(api_key, api_secret, race_id):
     auth = {'api_key': api_key, 'api_secret': api_secret, 'format': 'json'}
 
     print("  Fetching participant count...")
     p = api_get(f'race/{race_id}/participants', {**auth, 'page': 1, 'results_per_page': 1})
-    participant_count = int(p.get('total_results', 0))
+    debug_keys("participants", p)
+    # Try both common key names RunSignup uses
+    participant_count = int(
+        p.get('total_results') or p.get('num_results') or
+        len(p.get('participants') or p.get('participant') or [])
+    )
 
-    print("  Fetching donations...")
+    print("\n  Fetching donations...")
     d = api_get(f'race/{race_id}/donations', {**auth, 'page': 1, 'results_per_page': 250})
-    total_raised = sum(float(x.get('amount', 0)) for x in (d.get('donations') or []))
-    total_donations = int(d.get('total_results', 0))
+    debug_keys("donations", d)
+    donations_list = d.get('donations') or d.get('race_donations') or d.get('donation') or []
+    total_raised = sum(float(x.get('amount', 0)) for x in donations_list)
+    total_donations = int(d.get('total_results') or d.get('num_results') or len(donations_list))
     if total_donations > 250:
         for page in range(2, -(-total_donations // 250) + 1):
             r = api_get(f'race/{race_id}/donations', {**auth, 'page': page, 'results_per_page': 250})
-            total_raised += sum(float(x.get('amount', 0)) for x in (r.get('donations') or []))
+            page_list = r.get('donations') or r.get('race_donations') or r.get('donation') or []
+            total_raised += sum(float(x.get('amount', 0)) for x in page_list)
 
-    print("  Fetching tribute count...")
+    print("\n  Fetching tribute count...")
     t = api_get(f'race/{race_id}/tributes', {**auth, 'page': 1, 'results_per_page': 1})
-    tribute_count = int(t.get('total_results', 0))
+    debug_keys("tributes", t)
+    tribute_count = int(
+        t.get('total_results') or t.get('num_results') or
+        len(t.get('tributes') or t.get('tribute') or [])
+    )
 
-    print("  Fetching top fundraising teams...")
+    print("\n  Fetching top fundraising teams...")
     ft = api_get(f'race/{race_id}/fundraising-teams', {
         **auth, 'page': 1, 'results_per_page': 10, 'sort': 'amount_raised DESC'
     })
+    debug_keys("fundraising-teams", ft)
+    teams_list = ft.get('fundraising_teams') or ft.get('fundraising-teams') or ft.get('teams') or []
     top_fundraisers = [
         {'name': x.get('name', 'Anonymous'), 'amount_raised': float(x.get('amount_raised', 0))}
-        for x in (ft.get('fundraising_teams') or [])[:10]
+        for x in teams_list[:10]
     ]
 
     return {
