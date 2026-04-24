@@ -1,7 +1,20 @@
 {
-  "fetched_at": "2026-04-24T01:02:35.837327+00:00",
+  "fetched_at": "2026-04-24T01:11:55.535621+00:00",
   "total_raised": 60.0,
   "participant_count": 2,
   "tribute_count": 0,
-  "top_fundraisers": []
+  "divisions": [
+    {
+      "name": "Event 1143131",
+      "count": 1
+    },
+    {
+      "name": "Event 1143134",
+      "count": 0
+    },
+    {
+      "name": "Event 1143135",
+      "count": 1
+    }
+  ]
 }
