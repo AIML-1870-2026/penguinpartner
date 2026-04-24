@@ -82,6 +82,15 @@ function updateStats(data) {
   document.getElementById('tribute-count').textContent = tributes.toLocaleString();
 }
 
+function updateDonations(data) {
+  const reg   = data.registration_total || 0;
+  const don   = data.donation_total     || 0;
+  const total = data.total_raised       || 0;
+  document.getElementById('stat-donation-total').textContent     = formatMoneyFull(don);
+  document.getElementById('stat-registration-total').textContent = formatMoneyFull(reg);
+  document.getElementById('stat-combined-total').textContent     = formatMoneyFull(total);
+}
+
 function updateProgress(raised) {
   const pct = Math.min((raised / GOAL) * 100, 100);
   document.getElementById('therm-fill').style.height = pct + '%';
@@ -198,6 +207,7 @@ function applyData(data) {
   updateHero(raised);
   updateStats(data);
   updateProgress(raised);
+  updateDonations(data);
   updateDivisions(data.divisions || []);
   setLastUpdated(data.fetched_at);
 }
