@@ -1,6 +1,6 @@
 {
-  "fetched_at": "2026-04-24T01:15:14.966054+00:00",
-  "total_raised": 60.0,
+  "fetched_at": "2026-04-24T01:20:38.020736+00:00",
+  "registration_total": 60.0,
   "participant_count": 2,
   "tribute_count": 0,
   "divisions": [
@@ -16,5 +16,7 @@
       "name": "Seniors/Students 5k Run/Walk",
       "count": 1
     }
-  ]
+  ],
+  "donation_total": 50.0,
+  "total_raised": 110.0
 }
