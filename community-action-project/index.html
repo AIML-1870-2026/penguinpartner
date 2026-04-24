@@ -98,30 +98,38 @@
 
     <!-- ── HERO SCENERY: castle silhouette + running heroes ──────── -->
     <div class="hero__scenery" aria-hidden="true">
-      <svg class="hero__castle" viewBox="0 -30 1000 330" preserveAspectRatio="xMidYMax meet" xmlns="http://www.w3.org/2000/svg">
-        <path fill="currentColor" d="
-          M 0,300 L 0,150 L 55,150 L 55,100
-          L 66,100 L 66,70 L 93,70 L 93,100
-          L 117,100 L 117,70 L 144,70 L 144,100
-          L 168,100 L 168,70 L 195,70 L 195,100
-          L 202,100 L 202,150
-          L 240,150 L 240,135 L 262,135 L 262,150
-          L 330,150 L 330,30
-          L 350,30 L 350,5 L 386,5 L 386,30
-          L 416,30 L 416,5 L 452,5 L 452,30
-          L 482,30 L 482,5 L 518,5 L 518,30
-          L 548,30 L 548,5 L 584,5 L 584,30
-          L 614,30 L 614,5 L 650,5 L 650,30
-          L 670,30 L 670,150
-          L 710,150 L 710,135 L 738,135 L 738,150
-          L 798,150 L 798,100
-          L 808,100 L 808,70 L 835,70 L 835,100
-          L 859,100 L 859,70 L 886,70 L 886,100
-          L 910,100 L 910,70 L 937,70 L 937,100
-          L 945,100 L 945,150 L 1000,150 L 1000,300 Z
-        "/>
-        <rect x="499" y="-25" width="4" height="30" fill="currentColor"/>
-        <polygon points="503,-25 528,-12 503,1" fill="#E91E8C"/>
+      <svg class="hero__castle" viewBox="0 -70 1000 370" preserveAspectRatio="xMidYMax meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- Far left tower -->
+        <rect x="20"  y="110" width="110" height="190" fill="currentColor"/>
+        <polygon points="20,115 75,-20 130,115"         fill="currentColor"/>
+        <!-- Inner left tower -->
+        <rect x="155" y="150" width="70"  height="150" fill="currentColor"/>
+        <polygon points="155,155 190,60 225,155"        fill="currentColor"/>
+        <!-- Center tower: main body + two flanking turrets -->
+        <rect x="380" y="70"  width="240" height="230" fill="currentColor"/>
+        <rect x="345" y="95"  width="60"  height="205" fill="currentColor"/>
+        <rect x="595" y="95"  width="60"  height="205" fill="currentColor"/>
+        <!-- Center spires: tall central + two flanking -->
+        <polygon points="395,75 500,-65 605,75"         fill="currentColor"/>
+        <polygon points="345,100 375,15 405,100"        fill="currentColor"/>
+        <polygon points="595,100 625,15 655,100"        fill="currentColor"/>
+        <!-- Inner right tower -->
+        <rect x="775" y="150" width="70"  height="150" fill="currentColor"/>
+        <polygon points="775,155 810,60 845,155"        fill="currentColor"/>
+        <!-- Far right tower -->
+        <rect x="870" y="110" width="110" height="190" fill="currentColor"/>
+        <polygon points="870,115 925,-20 980,115"       fill="currentColor"/>
+        <!-- Connecting wall -->
+        <rect x="130" y="195" width="740" height="105" fill="currentColor"/>
+        <!-- Arched gate -->
+        <path d="M 460,300 L 460,225 A 40,40 0 0 0 540,225 L 540,300 Z" fill="rgba(255,255,255,0.3)"/>
+        <!-- Tower windows -->
+        <rect x="62"  y="148" width="36" height="50" rx="18" fill="rgba(255,255,255,0.22)"/>
+        <rect x="892" y="148" width="36" height="50" rx="18" fill="rgba(255,255,255,0.22)"/>
+        <rect x="478" y="110" width="44" height="60" rx="22" fill="rgba(255,255,255,0.22)"/>
+        <!-- Flag on central spire -->
+        <rect x="498" y="-62" width="4"  height="18"         fill="currentColor"/>
+        <polygon points="502,-62 526,-52 502,-42"             fill="#E91E8C"/>
       </svg>
       <!-- Superhero running figures -->
       <svg class="hero__runner hero__runner--1" viewBox="0 0 80 105" xmlns="http://www.w3.org/2000/svg">
