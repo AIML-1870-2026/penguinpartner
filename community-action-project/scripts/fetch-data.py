@@ -145,7 +145,9 @@ def main():
         with open(manual_path) as f:
             manual = json.load(f)
         donation_total = float(manual.get('donation_total', 0))
+        data['tribute_count'] = int(manual.get('tribute_count', 0))
         print(f"  Manual donation_total: ${donation_total:.2f}")
+        print(f"  Manual tribute_count:  {data['tribute_count']}")
 
     data['donation_total'] = round(donation_total, 2)
     data['total_raised']   = round(data['registration_total'] + donation_total, 2)
