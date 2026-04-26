@@ -73,6 +73,8 @@ a:hover { text-decoration: underline; }
   border: 2.5px solid var(--blue-bold);
 }
 .btn--outline:hover { background: var(--blue-bold); color: var(--white); }
+.btn--instagram { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: var(--white); }
+.btn--instagram:hover { filter: brightness(1.1); }
 
 /* ── Section base ──────────────────────────────────────────────── */
 .section { padding: 4rem 0; }
