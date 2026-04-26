@@ -268,20 +268,34 @@ a:hover { text-decoration: underline; }
   width: 100%;
   max-width: 700px;
   margin: 0 auto;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 14px;
+  height: 36px;
+  background: rgba(10, 20, 80, 0.28);
+  border-radius: 18px;
   border: 2.5px solid var(--blue-royal);
   overflow: visible;
   position: relative;
+  box-shadow: inset 0 4px 10px rgba(0,0,0,0.35), inset 0 -2px 5px rgba(255,255,255,0.08);
 }
 
 .hero__fill {
   height: 100%;
   width: 0%;
   background: linear-gradient(90deg, var(--pink-hot), var(--purple));
-  border-radius: 14px;
+  border-radius: 16px;
   transition: width 1.2s ease-out;
+  position: relative;
+}
+
+.hero__fill::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  right: 6px;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.38) 0%, transparent 100%);
+  border-radius: 8px;
+  pointer-events: none;
 }
 
 .hero__milestones {
