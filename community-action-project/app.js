@@ -167,9 +167,15 @@ function renderSponsors() {
 
   function rowCards(tierKey) {
     const list = byTier[tierKey];
-    return list.length > 0
-      ? list.map(s => cardHtml(s, tierKey)).join('')
-      : cardHtml(null, tierKey);
+    if (list.length === 0) return cardHtml(null, tierKey);
+    if (list.length === 1) return cardHtml(list[0], tierKey);
+    const meta = tierMeta[tierKey];
+    const names = list.map(s => escHtml(s.name)).join('<br>');
+    return `<div class="sponsor-card sponsor-card--${tierKey}">
+      <span class="sponsor-card__tier-label">${escHtml(meta.label)}</span>
+      <span class="sponsor-card__name">${names}</span>
+      <span class="sponsor-card__benefit">${escHtml(meta.benefit)}</span>
+    </div>`;
   }
 
   let html = '';
