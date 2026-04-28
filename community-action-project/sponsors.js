@@ -12,4 +12,5 @@
  */
 const SPONSORS = [
   { tier: 'sidekick', name: 'Maxximiliano Godejohn', logo: null },
+  { tier: 'sidekick', name: 'Colleen Ferzely', logo: null },
 ];
